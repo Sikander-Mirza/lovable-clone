@@ -53,6 +53,14 @@ Attach, paste or drag screenshots/designs into the prompt box (home page or chat
 ## Visual editor
 Click **Edit** above the preview, then click any element to select it. Double-click text to edit it in place (Enter to save, Esc to cancel). The toolbar changes text color, background, font size, bold and corner radius. Edits are written into the real source files (via Babel AST positions, `EDITOR` in `lib/previewDoc.ts`), appear as a single "Visual edits applied" version in the history, and don't reload the preview. **Drag to move:** press and drag any element; a violet line shows where it will land (before/after the element under the cursor, or a dashed box for "inside" a container; text-only elements can't be dropped into). Releasing rewrites the source (same file only, indentation preserved), reloads the preview once and re-selects the moved element. Esc cancels. **+ Add** inserts a Heading, Text, Button, Image, Link, Box or Divider after the selected element or inside it as the last child (a self-closing element like `<div />` is expanded automatically); the new element is selected afterwards and the preview reloads once. The toolbar also has padding, margin and text alignment, an **Image** field (paste a URL or upload; `<img>` only) and **Delete** for elements nested in JSX (deleting reloads the preview so element ids stay correct). Uploaded images are embedded as data URLs; `lib/assets.ts` swaps them for short placeholders before files are sent to the model and restores them afterwards, so they cost no tokens. Text or classes that come from code (e.g. `{items.map(...)}` or `className={cn(...)}`) can't be edited visually; ask the AI for those.
 
+## Productivity features
+- **Undo / Redo:** buttons above the preview, `Ctrl+Z` / `Ctrl+Shift+Z` (or `Ctrl+Y`), also from inside the preview. Covers visual edits, AI changes and restores (in-memory, up to 100 steps; the permanent history is the chat's version list).
+- **Edit-mode shortcuts:** `Delete` removes the selected element, `Ctrl+D` duplicates it, `Esc` deselects. **Duplicate** is also in the toolbar.
+- **Responsive preview:** Desktop / Tablet (768px) / Mobile (390px) toggle and a reload button.
+- **Templates:** 9 ready-made starting points on the home page (landing page, multi-page portfolio, dashboard, kanban, store, blog, restaurant, habit tracker, link-in-bio).
+- **Projects:** rename (click the name in the project header, or the pencil on the home page), duplicate, delete.
+- **Download ZIP:** the download button in the project header exports a runnable Vite project (`lib/zip.ts`, no dependencies).
+
 ## Roadmap
 All items done: auth + cloud persistence, GitHub sync, one-click deploy, version history, image attachments, Fix-with-AI, persistent app data, multi-page routing.
 Ideas: streaming edits as diffs, cloud storage for generated apps' data, a templates gallery.

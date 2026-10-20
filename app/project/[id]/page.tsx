@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
+import { toRepoFiles } from "@/lib/exportProject";
+import { createZip, downloadBlob } from "@/lib/zip";
 import Chat from "@/components/Chat";
 import Preview from "@/components/Preview";
 import GitHubSync from "@/components/GitHubSync";
@@ -22,6 +24,8 @@ export default function ProjectPage() {
   const [streaming, setStreaming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const started = useRef(false);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
   const assetTable = useRef<AssetTable>({});
   // In-memory undo/redo stacks of whole-project file states (lost on reload; the
   // permanent history is the version list in the chat).
@@ -159,6 +163,17 @@ export default function ProjectPage() {
     applyFiles(next);
   };
 
+  const commitName = () => {
+    const p = projectRef.current;
+    setRenaming(false);
+    const name = nameDraft.trim().slice(0, 80);
+    if (!p || !name || name === p.name) return;
+    const next = { ...p, name };
+    projectRef.current = next;
+    saveProject(next);
+    setProject(next);
+  };
+
   const restore = (index: number) => {
     const snap = project.messages[index]?.snapshot;
     if (!snap || busy) return;
@@ -182,7 +197,43 @@ export default function ProjectPage() {
           <Link href="/" className="text-white/50 hover:text-white">
             <ArrowLeft size={16} />
           </Link>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{project.name}</span>
+          {renaming ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitName();
+                if (e.key === "Escape") setRenaming(false);
+              }}
+              className="min-w-0 flex-1 rounded-md border border-white/20 bg-black/30 px-2 py-0.5 text-sm outline-none"
+            />
+          ) : (
+            <button
+              onClick={() => {
+                setNameDraft(project.name);
+                setRenaming(true);
+              }}
+              title="Rename project"
+              className="min-w-0 flex-1 truncate text-left text-sm font-medium hover:text-violet-300"
+            >
+              {project.name}
+            </button>
+          )}
+          <button
+            onClick={() =>
+              downloadBlob(
+                createZip(toRepoFiles(project.files, project.name)),
+                `${project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "app"}.zip`
+              )
+            }
+            disabled={Object.keys(project.files).length === 0}
+            title="Download as a runnable Vite project (.zip)"
+            className="rounded-md border border-white/15 p-1.5 text-white/70 hover:bg-white/10 disabled:opacity-40"
+          >
+            <Download size={13} />
+          </button>
           <GitHubSync projectId={project.id} name={project.name} files={project.files} />
           <DeployButton projectId={project.id} name={project.name} files={project.files} />
         </div>

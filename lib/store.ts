@@ -97,6 +97,20 @@ export async function deleteProject(id: string): Promise<void> {
   writeLocal(readLocal().filter((p) => p.id !== id));
 }
 
+export async function renameProject(id: string, name: string): Promise<void> {
+  const p = await getProject(id);
+  const clean = name.trim().slice(0, 80);
+  if (p && clean) await saveProject({ ...p, name: clean });
+}
+
+export async function duplicateProject(id: string): Promise<Project | undefined> {
+  const p = await getProject(id);
+  if (!p) return;
+  const copy: Project = { ...p, id: crypto.randomUUID(), name: `${p.name} (copy)`.slice(0, 80) };
+  await saveProject(copy);
+  return copy;
+}
+
 export async function createProject(prompt: string, images: string[] = []): Promise<Project> {
   const text = prompt || "Recreate the attached design.";
   const p: Project = {
