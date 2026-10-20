@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import Chat from "@/components/Chat";
 import Preview from "@/components/Preview";
 import GitHubSync from "@/components/GitHubSync";
+import DeployButton from "@/components/DeployButton";
 import { getProject, saveProject, type Message, type Project } from "@/lib/store";
 import { parseAssistant } from "@/lib/parse";
 
@@ -93,6 +94,7 @@ export default function ProjectPage() {
           </Link>
           <span className="min-w-0 flex-1 truncate text-sm font-medium">{project.name}</span>
           <GitHubSync projectId={project.id} name={project.name} files={project.files} />
+          <DeployButton projectId={project.id} name={project.name} files={project.files} />
         </div>
         <div className="min-h-0 flex-1">
           <Chat messages={project.messages} streaming={streaming} busy={busy} onSend={send} />
