@@ -14,6 +14,7 @@ import { getProject, saveProject, type Message, type Project } from "@/lib/store
 import { parseAssistant } from "@/lib/parse";
 import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt } from "@/lib/prompt";
 import { sameFiles, versionNumber } from "@/lib/versions";
+import { THEME_PATH, serializeTheme, type Theme } from "@/lib/theme";
 import { compactFiles, restoreAll, type AssetTable } from "@/lib/assets";
 
 const VISUAL_NOTE = "Visual edits applied.";
@@ -184,6 +185,15 @@ export default function ProjectPage() {
     applyFiles({ ...p.files, [path]: source });
   };
 
+  const onThemeChange = (theme: Theme) => {
+    const p = projectRef.current;
+    if (!p || busy) return;
+    const json = serializeTheme(theme);
+    if (p.files[THEME_PATH] === json) return;
+    pushHistory(p.files);
+    applyFiles({ ...p.files, [THEME_PATH]: json });
+  };
+
   const undo = () => {
     const prev = past.current.pop();
     const p = projectRef.current;
@@ -325,6 +335,7 @@ export default function ProjectPage() {
           projectId={project.id}
           onSourceEdit={onSourceEdit}
           onRuntimeError={onRuntimeError}
+          onThemeChange={onThemeChange}
           editDisabled={busy}
           canUndo={past.current.length > 0 && !busy}
           canRedo={future.current.length > 0 && !busy}

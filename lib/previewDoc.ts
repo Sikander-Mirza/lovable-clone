@@ -2,6 +2,8 @@
 // project entirely in the browser: Babel transpiles each file, blob URLs act as
 // the module graph, and an import map points npm packages at esm.sh.
 
+import { fontsHref, parseTheme, tailwindConfig } from "./theme";
+
 const REACT = "18.3.1";
 
 // The preview lives in a sandboxed srcdoc iframe (location is about:srcdoc), so
@@ -684,6 +686,7 @@ export function buildPreviewDoc(
   storage: Record<string, string> = {}
 ): string {
   const safe = (s: string) => s.replace(/</g, "\\u003c");
+  const theme = parseTheme(files);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -692,7 +695,11 @@ export function buildPreviewDoc(
 <script>window.__STORAGE__ = ${safe(JSON.stringify(storage))};</script>
 <script>${STORAGE_SHIM}</script>
 <style>html,body{margin:0;background:#fff;color:#111;min-height:100%}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" href="${fontsHref(theme)}" />
 <script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = ${safe(JSON.stringify(tailwindConfig(theme)))};</script>
+<style>body{font-family:'${theme.font}',ui-sans-serif,system-ui,sans-serif}h1,h2,h3,h4,h5,h6{font-family:'${theme.headingFont}',ui-sans-serif,system-ui,sans-serif}</style>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.4/babel.min.js"></script>
 <script type="importmap">${safe(JSON.stringify(IMPORT_MAP))}</script>
 </head>

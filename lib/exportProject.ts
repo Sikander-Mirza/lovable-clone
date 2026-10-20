@@ -1,14 +1,18 @@
 // Wraps the generated files (/App.js, /components/*.js ...) in a runnable
 // Vite + React + Tailwind scaffold so the repo works with `npm install && npm run dev`.
 
+import { THEME_PATH, fontsHref, parseTheme, tailwindConfig } from "./theme";
+
 const slug = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "app";
 
 export function toRepoFiles(files: Record<string, string>, name: string): Record<string, string> {
   const out: Record<string, string> = {};
+  const theme = parseTheme(files);
 
   for (const [path, content] of Object.entries(files)) {
-    if (path.startsWith("/public/")) continue;
+    // The theme becomes tailwind.config.js + index.css below.
+    if (path.startsWith("/public/") || path === THEME_PATH) continue;
     out["src" + path] = content;
   }
 
@@ -57,6 +61,8 @@ export default defineConfig({
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${name.replace(/[<>&"]/g, "")}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="${fontsHref(theme)}" />
   </head>
   <body>
     <div id="root"></div>
@@ -76,9 +82,19 @@ createRoot(document.getElementById("root")).render(<App />);
   out["src/index.css"] = `@tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body { font-family: '${theme.font}', ui-sans-serif, system-ui, sans-serif; }
+  h1, h2, h3, h4, h5, h6 { font-family: '${theme.headingFont}', ui-sans-serif, system-ui, sans-serif; }
+}
 `;
 
-  out["tailwind.config.js"] = `export default { content: ["./index.html", "./src/**/*.{js,jsx}"], theme: { extend: {} }, plugins: [] };
+  const cfg = tailwindConfig(theme);
+  out["tailwind.config.js"] = `export default {
+  content: ["./index.html", "./src/**/*.{js,jsx}"],
+  theme: ${JSON.stringify(cfg.theme, null, 2).replace(/\n/g, "\n  ")},
+  plugins: [],
+};
 `;
   out["postcss.config.js"] = `export default { plugins: { tailwindcss: {}, autoprefixer: {} } };
 `;

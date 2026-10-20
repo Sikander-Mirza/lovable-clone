@@ -16,6 +16,8 @@ import {
 import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
+import ThemePanel from "./ThemePanel";
+import type { Theme } from "@/lib/theme";
 
 const DEVICES = {
   desktop: { label: "Desktop", width: "100%", Icon: Monitor },
@@ -41,6 +43,7 @@ export default function Preview({
   onFix,
   onSourceEdit,
   onRuntimeError,
+  onThemeChange,
   editDisabled,
   canUndo,
   canRedo,
@@ -55,6 +58,8 @@ export default function Preview({
   onSourceEdit?: (path: string, source: string) => void;
   /** Called whenever the running preview reports an error (used for the automatic fix loop). */
   onRuntimeError?: (error: string) => void;
+  /** Called when the user changes the site theme (brand color / fonts). */
+  onThemeChange?: (theme: Theme) => void;
   editDisabled?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
@@ -203,6 +208,11 @@ export default function Preview({
           >
             <Pencil size={13} /> Edit
           </button>
+        )}
+        {tab === "preview" && paths.length > 0 && onThemeChange && (
+          <div className="ml-2">
+            <ThemePanel files={files} onChange={onThemeChange} />
+          </div>
         )}
         <div className="ml-auto flex items-center gap-1">
           <button
