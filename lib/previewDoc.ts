@@ -94,6 +94,29 @@ window.addEventListener("unhandledrejection", (e) => showError(e.reason && e.rea
 })();
 `;
 
+// The preview iframe is sandboxed without allow-same-origin, so the real
+// localStorage/sessionStorage throw. Provide in-memory stand-ins so generated
+// apps that persist data keep working (state resets when the preview reloads).
+const STORAGE_SHIM = `
+(function () {
+  function make() {
+    var d = {};
+    return {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(d, k) ? d[k] : null; },
+      setItem: function (k, v) { d[k] = String(v); },
+      removeItem: function (k) { delete d[k]; },
+      clear: function () { d = {}; },
+      key: function (i) { return Object.keys(d)[i] || null; },
+      get length() { return Object.keys(d).length; }
+    };
+  }
+  ["localStorage", "sessionStorage"].forEach(function (name) {
+    try { window[name].getItem("x"); }
+    catch (e) { Object.defineProperty(window, name, { value: make(), configurable: true }); }
+  });
+})();
+`;
+
 export function buildPreviewDoc(files: Record<string, string>): string {
   const safe = (s: string) => s.replace(/</g, "\\u003c");
   return `<!DOCTYPE html>
@@ -101,6 +124,7 @@ export function buildPreviewDoc(files: Record<string, string>): string {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>${STORAGE_SHIM}</script>
 <style>html,body{margin:0;background:#fff;color:#111;min-height:100%}</style>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.4/babel.min.js"></script>
