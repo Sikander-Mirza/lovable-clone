@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowUp, Check, Copy, Heart, Pencil, Trash2 } from "lucide-react";
 import AuthButton from "@/components/AuthButton";
+import ClarifyDialog from "@/components/ClarifyDialog";
 import { AttachButton, Thumbs, useAttachments } from "@/components/Attachments";
 import {
   createProject,
@@ -30,11 +31,32 @@ export default function Home() {
 
   const att = useAttachments();
 
-  const start = async (text: string) => {
+  // Ask a few clarifying questions before building (remembered per browser).
+  const [askFirst, setAskFirst] = useState(true);
+  const [clarify, setClarify] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setAskFirst(localStorage.getItem("lovable-clone:ask-questions") !== "off");
+    } catch {}
+  }, []);
+  const toggleAsk = (on: boolean) => {
+    setAskFirst(on);
+    try {
+      localStorage.setItem("lovable-clone:ask-questions", on ? "on" : "off");
+    } catch {}
+  };
+
+  const build = async (text: string, details = "") => {
+    const p = await createProject(text, att.images, details);
+    router.push(`/project/${p.id}`);
+  };
+
+  /** `ask`: custom prompts get questions first; templates are already detailed, so they don't. */
+  const start = async (text: string, ask = false) => {
     const t = text.trim();
     if (!t && !att.images.length) return;
-    const p = await createProject(t, att.images);
-    router.push(`/project/${p.id}`);
+    if (ask && askFirst && t.length >= 3) setClarify(t);
+    else await build(t);
   };
 
   const commitRename = async (id: string) => {
@@ -61,7 +83,7 @@ export default function Home() {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              start(prompt);
+              start(prompt, true);
             }
           }}
           rows={3}
@@ -69,9 +91,23 @@ export default function Home() {
           className="w-full resize-none bg-transparent p-2 outline-none placeholder:text-white/30"
         />
         <div className="flex items-center justify-between">
-          <AttachButton onFiles={att.add} />
+          <div className="flex items-center gap-3">
+            <AttachButton onFiles={att.add} />
+            <label
+              className="flex cursor-pointer items-center gap-1.5 text-xs text-white/45 hover:text-white/70"
+              title="The AI asks a few questions first so the result matches what you want"
+            >
+              <input
+                type="checkbox"
+                checked={askFirst}
+                onChange={(e) => toggleAsk(e.target.checked)}
+                className="accent-violet-500"
+              />
+              Ask me questions first
+            </label>
+          </div>
           <button
-            onClick={() => start(prompt)}
+            onClick={() => start(prompt, true)}
             disabled={!prompt.trim() && !att.images.length}
             className="rounded-lg bg-violet-600 p-2 disabled:opacity-40"
           >
@@ -98,6 +134,15 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {clarify && (
+        <ClarifyDialog
+          prompt={clarify}
+          hasImage={att.images.length > 0}
+          onBuild={(details) => build(clarify, details)}
+          onCancel={() => setClarify(null)}
+        />
+      )}
 
       {projects.length > 0 && (
         <section className="mt-14 w-full pb-16">

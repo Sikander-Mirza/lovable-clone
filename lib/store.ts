@@ -5,6 +5,8 @@ export type Message = {
   content: string;
   /** Attached images as (downscaled) data URLs; user messages only. */
   images?: string[];
+  /** Answers to the pre-build questions; sent to the model together with `content`. */
+  details?: string;
   /** Full project files right after this assistant reply: powers version history. */
   snapshot?: Record<string, string>;
 };
@@ -111,12 +113,23 @@ export async function duplicateProject(id: string): Promise<Project | undefined>
   return copy;
 }
 
-export async function createProject(prompt: string, images: string[] = []): Promise<Project> {
+export async function createProject(
+  prompt: string,
+  images: string[] = [],
+  details = ""
+): Promise<Project> {
   const text = prompt || "Recreate the attached design.";
   const p: Project = {
     id: crypto.randomUUID(),
     name: text.slice(0, 40) || "Untitled",
-    messages: [{ role: "user", content: text, ...(images.length ? { images } : {}) }],
+    messages: [
+      {
+        role: "user",
+        content: text,
+        ...(images.length ? { images } : {}),
+        ...(details ? { details } : {}),
+      },
+    ],
     files: {},
     updatedAt: Date.now(),
   };

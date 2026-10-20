@@ -100,6 +100,16 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
                 </div>
               )}
               {m.content}
+              {m.details && (
+                <ul className="space-y-0.5 border-t border-white/20 pt-2 text-xs text-white/75">
+                  {m.details
+                    .split("\n")
+                    .filter((l) => l.startsWith("- "))
+                    .map((l, j) => (
+                      <li key={j}>{l.slice(2)}</li>
+                    ))}
+                </ul>
+              )}
             </div>
           ) : (
             <AssistantBubble

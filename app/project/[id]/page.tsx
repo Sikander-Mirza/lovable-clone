@@ -56,7 +56,7 @@ export default function ProjectPage() {
         body: JSON.stringify({
           messages: p.messages.map((m, i) => ({
             role: m.role,
-            content: m.content,
+            content: m.details ? `${m.content}\n\n${m.details}` : m.content,
             ...(i === p.messages.length - 1 && m.images ? { images: m.images } : {}),
           })),
           files: compact.files,
