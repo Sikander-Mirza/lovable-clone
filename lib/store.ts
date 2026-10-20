@@ -3,6 +3,8 @@ import { currentUserId, getSupabase } from "./supabase";
 export type Message = {
   role: "user" | "assistant";
   content: string;
+  /** Attached images as (downscaled) data URLs; user messages only. */
+  images?: string[];
   /** Full project files right after this assistant reply: powers version history. */
   snapshot?: Record<string, string>;
 };
@@ -95,11 +97,12 @@ export async function deleteProject(id: string): Promise<void> {
   writeLocal(readLocal().filter((p) => p.id !== id));
 }
 
-export async function createProject(prompt: string): Promise<Project> {
+export async function createProject(prompt: string, images: string[] = []): Promise<Project> {
+  const text = prompt || "Recreate the attached design.";
   const p: Project = {
     id: crypto.randomUUID(),
-    name: prompt.slice(0, 40) || "Untitled",
-    messages: [{ role: "user", content: prompt }],
+    name: text.slice(0, 40) || "Untitled",
+    messages: [{ role: "user", content: text, ...(images.length ? { images } : {}) }],
     files: {},
     updatedAt: Date.now(),
   };

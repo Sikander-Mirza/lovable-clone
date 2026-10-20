@@ -28,9 +28,13 @@ export default function ProjectPage() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Strip snapshots: the model only needs role + content.
+        // Strip snapshots; only the latest message carries its images (keeps requests small).
         body: JSON.stringify({
-          messages: p.messages.map((m) => ({ role: m.role, content: m.content })),
+          messages: p.messages.map((m, i) => ({
+            role: m.role,
+            content: m.content,
+            ...(i === p.messages.length - 1 && m.images ? { images: m.images } : {}),
+          })),
           files: p.files,
         }),
       });
@@ -83,8 +87,11 @@ export default function ProjectPage() {
 
   if (!project) return null;
 
-  const send = (text: string) => {
-    const messages: Message[] = [...project.messages, { role: "user", content: text }];
+  const send = (text: string, images: string[]) => {
+    const messages: Message[] = [
+      ...project.messages,
+      { role: "user", content: text, ...(images.length ? { images } : {}) },
+    ];
     const next = { ...project, messages };
     saveProject(next);
     setProject(next);

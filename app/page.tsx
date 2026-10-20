@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowUp, Heart, Trash2 } from "lucide-react";
 import AuthButton from "@/components/AuthButton";
+import { AttachButton, Thumbs, useAttachments } from "@/components/Attachments";
 import { createProject, deleteProject, listProjects, type Project } from "@/lib/store";
 
 const IDEAS = [
@@ -24,10 +25,12 @@ export default function Home() {
     refresh();
   }, []);
 
+  const att = useAttachments();
+
   const start = async (text: string) => {
     const t = text.trim();
-    if (!t) return;
-    const p = await createProject(t);
+    if (!t && !att.images.length) return;
+    const p = await createProject(t, att.images);
     router.push(`/project/${p.id}`);
   };
 
@@ -41,7 +44,8 @@ export default function Home() {
       </h1>
       <p className="mt-3 text-white/50">Describe an app and watch it get built.</p>
 
-      <div className="mt-10 w-full rounded-2xl border border-white/15 bg-white/5 p-3">
+      <div className="mt-10 w-full rounded-2xl border border-white/15 bg-white/5 p-3" {...att.handlers}>
+        <Thumbs images={att.images} onRemove={att.remove} />
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -55,10 +59,11 @@ export default function Home() {
           placeholder="Ask me to build a landing page for..."
           className="w-full resize-none bg-transparent p-2 outline-none placeholder:text-white/30"
         />
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <AttachButton onFiles={att.add} />
           <button
             onClick={() => start(prompt)}
-            disabled={!prompt.trim()}
+            disabled={!prompt.trim() && !att.images.length}
             className="rounded-lg bg-violet-600 p-2 disabled:opacity-40"
           >
             <ArrowUp size={18} />

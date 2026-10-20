@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   }
 
   const { messages, files } = (await req.json()) as {
-    messages: { role: "user" | "assistant"; content: string }[];
+    messages: { role: "user" | "assistant"; content: string; images?: string[] }[];
     files: Record<string, string>;
   };
 
@@ -21,11 +21,20 @@ export async function POST(req: Request) {
   const model = process.env.LLM_MODEL || "gemini-3-flash-preview";
 
   // Attach the current project files to the latest user turn.
-  const msgs = messages.map((m, i) =>
-    i === messages.length - 1 && m.role === "user"
-      ? { role: m.role, content: `${filesContext(files)}\n\nRequest: ${m.content}` }
-      : { role: m.role, content: m.content }
-  );
+  const msgs: OpenAI.Chat.ChatCompletionMessageParam[] = messages.map((m, i) => {
+    if (i === messages.length - 1 && m.role === "user") {
+      const text = `${filesContext(files)}\n\nRequest: ${m.content}`;
+      if (!m.images?.length) return { role: "user", content: text };
+      return {
+        role: "user",
+        content: [
+          { type: "text", text: `${text}\n\n(The attached image(s) are a design/screenshot to recreate or draw from.)` },
+          ...m.images.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+        ],
+      };
+    }
+    return { role: m.role, content: m.content } as OpenAI.Chat.ChatCompletionMessageParam;
+  });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

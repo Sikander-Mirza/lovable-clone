@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, FileCode2, Loader2, RotateCcw } from "lucide-react";
 import { sameFiles, versionNumber } from "@/lib/versions";
+import { AttachButton, Thumbs, useAttachments } from "./Attachments";
 import type { Message } from "@/lib/store";
 import { parseAssistant } from "@/lib/parse";
 
@@ -11,7 +12,7 @@ type Props = {
   currentFiles: Record<string, string>;
   streaming: string | null; // raw in-flight assistant text
   busy: boolean;
-  onSend: (text: string) => void;
+  onSend: (text: string, images: string[]) => void;
   onRestore: (messageIndex: number) => void;
 };
 
@@ -74,11 +75,14 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
 
+  const att = useAttachments();
+
   const submit = () => {
     const t = input.trim();
-    if (!t || busy) return;
+    if ((!t && !att.images.length) || busy) return;
     setInput("");
-    onSend(t);
+    onSend(t || "Recreate the attached design.", att.images);
+    att.clear();
   };
 
   return (
@@ -86,7 +90,15 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {messages.map((m, i) =>
           m.role === "user" ? (
-            <div key={i} className="ml-auto max-w-[85%] rounded-2xl bg-violet-600 px-3.5 py-2 text-sm">
+            <div key={i} className="ml-auto max-w-[85%] space-y-2 rounded-2xl bg-violet-600 px-3.5 py-2 text-sm">
+              {m.images && (
+                <div className="flex flex-wrap gap-1.5">
+                  {m.images.map((src, j) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={j} src={src} alt="attachment" className="h-20 rounded-lg object-cover" />
+                  ))}
+                </div>
+              )}
               {m.content}
             </div>
           ) : (
@@ -109,8 +121,11 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
         <div ref={endRef} />
       </div>
 
-      <div className="border-t border-white/10 p-3">
-        <div className="flex items-end gap-2 rounded-xl border border-white/15 bg-white/5 p-2">
+      <div className="border-t border-white/10 p-3" {...att.handlers}>
+        <div className="rounded-xl border border-white/15 bg-white/5 p-2">
+        <Thumbs images={att.images} onRemove={att.remove} />
+        <div className="flex items-end gap-1">
+          <AttachButton onFiles={att.add} />
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -126,11 +141,12 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
           />
           <button
             onClick={submit}
-            disabled={busy || !input.trim()}
+            disabled={busy || (!input.trim() && !att.images.length)}
             className="rounded-lg bg-violet-600 p-2 text-white disabled:opacity-40"
           >
             <ArrowUp size={16} />
           </button>
+        </div>
         </div>
       </div>
     </div>

@@ -33,5 +33,8 @@ Click **Deploy** on a project page, paste a Vercel token (vercel.com/account/tok
 ## Version history
 Every AI reply stores a snapshot of the project (`snapshot` on the message, so no database change is needed). Each reply in the chat shows its version number and a **Restore** button when it differs from the current state. Restoring adds a new version, so you can always jump back again.
 
+## Image attachments
+Attach, paste or drag screenshots/designs into the prompt box (home page or chat, up to 4). They are downscaled to 1280px JPEG in the browser (`lib/image.ts`) and sent to a vision-capable model with the request; only the latest message sends its images. Use a model that supports images (the default Gemini model does).
+
 ## Roadmap
-~~Auth + cloud persistence (Supabase)~~ done. ~~GitHub sync~~ done. ~~One-click deploy~~ done. ~~Version history~~ done. Next: image attachments.
+~~Auth + cloud persistence (Supabase)~~ done. ~~GitHub sync~~ done. ~~One-click deploy~~ done. ~~Version history~~ done. ~~Image attachments~~ done. Next ideas: an "Ask AI to fix this" button for preview errors, streaming edits as diffs, multi-page routing templates.
