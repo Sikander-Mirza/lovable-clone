@@ -136,7 +136,19 @@ export default function ProjectPage() {
         </div>
       </aside>
       <main className="min-w-0 flex-1">
-        <Preview files={liveFiles} />
+        <Preview
+          files={liveFiles}
+          projectId={project.id}
+          onFix={
+            busy
+              ? undefined
+              : (err) =>
+                  send(
+                    `The preview crashed with this runtime error. Find the cause and fix it:\n\n${err}`,
+                    []
+                  )
+          }
+        />
       </main>
     </div>
   );

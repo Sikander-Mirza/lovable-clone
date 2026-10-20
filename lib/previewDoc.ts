@@ -4,6 +4,17 @@
 
 const REACT = "18.3.1";
 
+// The preview lives in a sandboxed srcdoc iframe (location is about:srcdoc), so
+// BrowserRouter (pushState) and HashRouter (URL parsing) both break. Re-export
+// react-router-dom with both swapped for MemoryRouter so multi-page apps
+// navigate in the preview. The exported Vite project keeps real routing.
+const RR = "https://esm.sh/react-router-dom@6.28.0?external=react,react-dom";
+const RR_SHIM =
+  "data:text/javascript," +
+  encodeURIComponent(
+    `export * from "${RR}"; export { MemoryRouter as BrowserRouter, MemoryRouter as HashRouter } from "${RR}";`
+  );
+
 const IMPORT_MAP = {
   imports: {
     react: `https://esm.sh/react@${REACT}`,
@@ -11,7 +22,7 @@ const IMPORT_MAP = {
     "react-dom": `https://esm.sh/react-dom@${REACT}?external=react`,
     "react-dom/": `https://esm.sh/react-dom@${REACT}/`,
     "lucide-react": `https://esm.sh/lucide-react@0.468.0?external=react`,
-    "react-router-dom": `https://esm.sh/react-router-dom@6.28.0?external=react,react-dom`,
+    "react-router-dom": RR_SHIM,
     "framer-motion": `https://esm.sh/framer-motion@11.15.0?external=react,react-dom`,
     recharts: `https://esm.sh/recharts@2.15.0?external=react,react-dom`,
     "date-fns": `https://esm.sh/date-fns@4.1.0`,
@@ -96,34 +107,49 @@ window.addEventListener("unhandledrejection", (e) => showError(e.reason && e.rea
 
 // The preview iframe is sandboxed without allow-same-origin, so the real
 // localStorage/sessionStorage throw. Provide in-memory stand-ins so generated
-// apps that persist data keep working (state resets when the preview reloads).
+// apps that persist data keep working. localStorage is seeded from, and synced
+// back to, the parent page (per project) so data survives reloads; sessionStorage
+// is in-memory only.
 const STORAGE_SHIM = `
 (function () {
-  function make() {
+  function make(seed, onChange) {
     var d = {};
+    Object.keys(seed || {}).forEach(function (k) { d[k] = String(seed[k]); });
+    function changed() { if (onChange) onChange(d); }
     return {
       getItem: function (k) { return Object.prototype.hasOwnProperty.call(d, k) ? d[k] : null; },
-      setItem: function (k, v) { d[k] = String(v); },
-      removeItem: function (k) { delete d[k]; },
-      clear: function () { d = {}; },
+      setItem: function (k, v) { d[k] = String(v); changed(); },
+      removeItem: function (k) { delete d[k]; changed(); },
+      clear: function () { d = {}; changed(); },
       key: function (i) { return Object.keys(d)[i] || null; },
       get length() { return Object.keys(d).length; }
     };
   }
+  var seed = window.__STORAGE__ || {};
+  var impls = {
+    localStorage: function () {
+      return make(seed, function (d) { parent.postMessage({ type: "storage-sync", data: d }, "*"); });
+    },
+    sessionStorage: function () { return make({}, null); }
+  };
   ["localStorage", "sessionStorage"].forEach(function (name) {
     try { window[name].getItem("x"); }
-    catch (e) { Object.defineProperty(window, name, { value: make(), configurable: true }); }
+    catch (e) { Object.defineProperty(window, name, { value: impls[name](), configurable: true }); }
   });
 })();
 `;
 
-export function buildPreviewDoc(files: Record<string, string>): string {
+export function buildPreviewDoc(
+  files: Record<string, string>,
+  storage: Record<string, string> = {}
+): string {
   const safe = (s: string) => s.replace(/</g, "\\u003c");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>window.__STORAGE__ = ${safe(JSON.stringify(storage))};</script>
 <script>${STORAGE_SHIM}</script>
 <style>html,body{margin:0;background:#fff;color:#111;min-height:100%}</style>
 <script src="https://cdn.tailwindcss.com"></script>

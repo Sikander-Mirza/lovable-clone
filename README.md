@@ -36,5 +36,11 @@ Every AI reply stores a snapshot of the project (`snapshot` on the message, so n
 ## Image attachments
 Attach, paste or drag screenshots/designs into the prompt box (home page or chat, up to 4). They are downscaled to 1280px JPEG in the browser (`lib/image.ts`) and sent to a vision-capable model with the request; only the latest message sends its images. Use a model that supports images (the default Gemini model does).
 
+## Preview details
+- **Fix with AI:** if the preview throws, a red banner appears with a **Fix with AI** button that sends the error back to the model.
+- **Saved app data:** generated apps can use `localStorage`; it is persisted per project in your browser (`lovable-clone:appdata:<id>`), so things like a kanban board keep their data across reloads. `sessionStorage` is in-memory only.
+- **Multi-page apps:** generated apps use `react-router-dom` (`HashRouter`). In the sandboxed preview both routers are swapped for `MemoryRouter` (`lib/previewDoc.ts`); the exported/deployed app uses real routing.
+
 ## Roadmap
-~~Auth + cloud persistence (Supabase)~~ done. ~~GitHub sync~~ done. ~~One-click deploy~~ done. ~~Version history~~ done. ~~Image attachments~~ done. Next ideas: an "Ask AI to fix this" button for preview errors, streaming edits as diffs, multi-page routing templates.
+All items done: auth + cloud persistence, GitHub sync, one-click deploy, version history, image attachments, Fix-with-AI, persistent app data, multi-page routing.
+Ideas: streaming edits as diffs, cloud storage for generated apps' data, a templates gallery.

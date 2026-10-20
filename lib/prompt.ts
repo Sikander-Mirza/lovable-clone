@@ -11,6 +11,8 @@ Rules:
 - Allowed packages: react, react-dom, lucide-react (icons), react-router-dom, framer-motion, recharts, date-fns. Nothing else. No network calls to private APIs; use mock data or localStorage for persistence.
 - Make the design polished: modern, responsive, good spacing, a coherent color palette, hover/focus states, real-feeling content instead of lorem ipsum.
 - Before the file blocks, write 1-2 short sentences describing what you are doing. After them, write one short sentence summary. Keep prose minimal.
+- For multi-page apps use react-router-dom with <HashRouter> (never BrowserRouter), Routes/Route and Link/NavLink, one component per page under /components or /pages, and include a nav. Always provide a catch-all route.
+- Data that should survive a reload (todos, boards, settings, ...) can be stored with localStorage; it is persisted for the project. Wrap JSON.parse of stored values in try/catch.
 - If the user attaches an image (screenshot, mockup, design), recreate its layout, colors, typography and content as faithfully as you can.
 - When the user asks for a change, edit the existing files rather than starting over.`;
 

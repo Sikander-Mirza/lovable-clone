@@ -1,10 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Eye, Code2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Eye, Code2, Wrench } from "lucide-react";
 import { buildPreviewDoc } from "@/lib/previewDoc";
 
-export default function Preview({ files }: { files: Record<string, string> }) {
+const MAX_APP_DATA = 1_000_000; // chars of persisted app data per project
+
+const appDataKey = (id: string) => `lovable-clone:appdata:${id}`;
+
+function readAppData(id: string): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(appDataKey(id)) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export default function Preview({
+  files,
+  projectId,
+  onFix,
+}: {
+  files: Record<string, string>;
+  projectId: string;
+  /** Called with the runtime error text when the user clicks "Fix with AI". */
+  onFix?: (error: string) => void;
+}) {
+  const frame = useRef<HTMLIFrameElement>(null);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [doc, setDoc] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +39,7 @@ export default function Preview({ files }: { files: Record<string, string> }) {
     if (!paths.length) return;
     const t = setTimeout(() => {
       setError(null);
-      setDoc(buildPreviewDoc(files));
+      setDoc(buildPreviewDoc(files, readAppData(projectId)));
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -25,11 +47,20 @@ export default function Preview({ files }: { files: Record<string, string> }) {
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
+      // Only trust messages from our own preview iframe.
+      if (e.source !== frame.current?.contentWindow) return;
       if (e.data?.type === "preview-error") setError(String(e.data.message));
+      if (e.data?.type === "storage-sync" && e.data.data && typeof e.data.data === "object") {
+        const json = JSON.stringify(e.data.data);
+        if (json.length > MAX_APP_DATA) return;
+        try {
+          localStorage.setItem(appDataKey(projectId), json);
+        } catch {}
+      }
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, []);
+  }, [projectId]);
 
   return (
     <div className="flex h-full flex-col">
@@ -50,8 +81,21 @@ export default function Preview({ files }: { files: Record<string, string> }) {
             <Icon size={14} /> {label}
           </button>
         ))}
-        {error && tab === "preview" && (
-          <span className="ml-auto truncate text-xs text-red-400">Runtime error in preview</span>
+        {error && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-red-400">Error in preview</span>
+            {onFix && (
+              <button
+                onClick={() => {
+                  onFix(error.slice(0, 1500));
+                  setError(null);
+                }}
+                className="flex items-center gap-1.5 rounded-md bg-red-500/20 px-2.5 py-1 text-xs font-medium text-red-300 hover:bg-red-500/30"
+              >
+                <Wrench size={12} /> Fix with AI
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -63,6 +107,7 @@ export default function Preview({ files }: { files: Record<string, string> }) {
         ) : (
           <>
             <iframe
+              ref={frame}
               title="Preview"
               srcDoc={doc}
               sandbox="allow-scripts allow-forms allow-modals allow-popups"

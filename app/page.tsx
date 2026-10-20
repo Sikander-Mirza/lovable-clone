@@ -12,6 +12,7 @@ const IDEAS = [
   "A habit tracker with streaks and a weekly chart",
   "A SaaS landing page for an AI note-taking app",
   "A kanban board with column moves",
+  "A portfolio site with Home, Projects and Contact pages",
   "A personal finance dashboard with spending categories",
 ];
 
