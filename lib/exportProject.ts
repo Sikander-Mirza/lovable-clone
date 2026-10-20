@@ -44,11 +44,57 @@ export function toRepoFiles(files: Record<string, string>, name: string): Record
     2
   );
 
+  // `import { submitForm } from "lovable"` in generated code resolves to this helper.
+  out["src/lovable.js"] = `// Saves form submissions to Supabase (table "submissions", see supabase/schema.sql in
+// lovable-clone). Without the VITE_ variables it falls back to this browser's localStorage.
+const URL_ = import.meta.env.VITE_SUPABASE_URL;
+const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const PROJECT = import.meta.env.VITE_PROJECT_ID;
+
+export async function submitForm(name, data) {
+  if (URL_ && KEY && PROJECT) {
+    try {
+      const res = await fetch(URL_ + "/rest/v1/submissions", {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          Authorization: "Bearer " + KEY,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({ project_id: PROJECT, form: String(name), data }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+  try {
+    const k = "lovable:submissions";
+    const list = JSON.parse(localStorage.getItem(k) || "[]");
+    list.push({ form: String(name), data, at: Date.now() });
+    localStorage.setItem(k, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export default { submitForm };
+`;
+  out[".env.example"] = `# Where form submissions go (optional). Without these they stay in the visitor's browser.
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_PROJECT_ID=
+`;
+
   out["vite.config.js"] = `import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 
 // Generated components use JSX inside .js files.
 export default defineConfig({
+  resolve: { alias: { lovable: fileURLToPath(new URL("./src/lovable.js", import.meta.url)) } },
   plugins: [react({ include: /\\.(js|jsx)$/ })],
   esbuild: { loader: "jsx", include: /src\\/.*\\.jsx?$/, exclude: [] },
   optimizeDeps: { esbuildOptions: { loader: { ".js": "jsx" } } },

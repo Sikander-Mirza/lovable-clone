@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Code2,
   Eye,
+  Inbox,
   Monitor,
   Pencil,
   Redo2,
@@ -17,6 +18,8 @@ import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
 import ThemePanel from "./ThemePanel";
+import SubmissionsPanel from "./SubmissionsPanel";
+import { addSubmission } from "@/lib/submissions";
 import type { Theme } from "@/lib/theme";
 
 const DEVICES = {
@@ -69,13 +72,14 @@ export default function Preview({
   const frame = useRef<HTMLIFrameElement>(null);
   const [device, setDevice] = useState<keyof typeof DEVICES>("desktop");
   const [nonce, setNonce] = useState(0);
+  const [subTick, setSubTick] = useState(0); // bumps when a form submission arrives
   const onRuntimeErrorRef = useRef(onRuntimeError);
   onRuntimeErrorRef.current = onRuntimeError;
   const undoRef = useRef(onUndo);
   const redoRef = useRef(onRedo);
   undoRef.current = onUndo;
   redoRef.current = onRedo;
-  const [tab, setTab] = useState<"preview" | "code">("preview");
+  const [tab, setTab] = useState<"preview" | "code" | "data">("preview");
   const [doc, setDoc] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -153,6 +157,16 @@ export default function Preview({
       }
       if (d?.type === "select") setSel(d.id ? (d as Selection) : null);
       if (d?.type === "edit-error") setNotice(String(d.message));
+      if (d?.type === "form-submit" && typeof d.name === "string") {
+        const payload = d.data && typeof d.data === "object" ? d.data : {};
+        if (JSON.stringify(payload).length > 10_000) {
+          post({ type: "submit-result", id: d.id, ok: false });
+        } else {
+          addSubmission(projectId, d.name.slice(0, 40) || "form", payload as Record<string, unknown>)
+            .then((ok) => post({ type: "submit-result", id: d.id, ok }))
+            .then(() => setSubTick((n) => n + 1));
+        }
+      }
       if (d?.type === "shortcut") (d.name === "redo" ? redoRef : undoRef).current?.();
       if (d?.type === "source-update" && typeof d.path === "string" && typeof d.source === "string") {
         if (typeof d.selectId === "string") pendingSelect.current = d.selectId;
@@ -183,6 +197,7 @@ export default function Preview({
           [
             ["preview", Eye, "Preview"],
             ["code", Code2, "Code"],
+            ["data", Inbox, "Data"],
           ] as const
         ).map(([id, Icon, label]) => (
           <button
@@ -310,6 +325,7 @@ export default function Preview({
                 style={{ width: DEVICES[device].width, maxWidth: "100%" }}
               />
             </div>
+            {tab === "data" && <SubmissionsPanel projectId={projectId} tick={subTick} />}
             {tab === "code" && (
               <div className="flex h-full">
                 <div className="w-56 shrink-0 overflow-y-auto border-r border-white/10 p-2 text-sm">

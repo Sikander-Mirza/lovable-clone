@@ -17,6 +17,29 @@ const RR_SHIM =
     `export * from "${RR}"; export { MemoryRouter as BrowserRouter, MemoryRouter as HashRouter } from "${RR}";`
   );
 
+// `import { submitForm } from "lovable"` in generated code. In the preview it asks the
+// builder to store the submission (shown in the Data tab); the exported site gets a
+// real src/lovable.js that posts to Supabase (see lib/exportProject.ts).
+const LOVABLE_SHIM =
+  "data:text/javascript," +
+  encodeURIComponent(`
+export function submitForm(name, data) {
+  return new Promise(function (resolve) {
+    var id = Math.random().toString(36).slice(2);
+    function onMsg(e) {
+      if (e.data && e.data.type === "submit-result" && e.data.id === id) {
+        removeEventListener("message", onMsg);
+        resolve(!!e.data.ok);
+      }
+    }
+    addEventListener("message", onMsg);
+    parent.postMessage({ type: "form-submit", id: id, name: String(name), data: data }, "*");
+    setTimeout(function () { removeEventListener("message", onMsg); resolve(true); }, 5000);
+  });
+}
+export default { submitForm: submitForm };
+`);
+
 const IMPORT_MAP = {
   imports: {
     react: `https://esm.sh/react@${REACT}`,
@@ -25,6 +48,7 @@ const IMPORT_MAP = {
     "react-dom/": `https://esm.sh/react-dom@${REACT}/`,
     "lucide-react": `https://esm.sh/lucide-react@0.468.0?external=react`,
     "react-router-dom": RR_SHIM,
+    lovable: LOVABLE_SHIM,
     "framer-motion": `https://esm.sh/framer-motion@11.15.0?external=react,react-dom`,
     recharts: `https://esm.sh/recharts@2.15.0?external=react,react-dom`,
     "date-fns": `https://esm.sh/date-fns@4.1.0`,

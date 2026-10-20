@@ -34,12 +34,23 @@ export async function POST(req: Request) {
   // action: "create"
   const files: Record<string, string> = body.files ?? {};
   const name = String(body.name || "app").toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 60);
+  // Let the deployed site's forms post to Supabase (read by the owner in the Data tab).
+  // The anon/publishable key is public by design; row-level security protects the data.
+  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const sbKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const projectId = typeof body.projectId === "string" ? body.projectId : "";
+  const siteEnv =
+    sbUrl && sbKey && /^[0-9a-f-]{36}$/i.test(projectId)
+      ? { VITE_SUPABASE_URL: sbUrl, VITE_SUPABASE_ANON_KEY: sbKey, VITE_PROJECT_ID: projectId }
+      : undefined;
+
   const res = await fetch(`${VERCEL}/v13/deployments?skipAutoDetectionConfirmation=1${team}`, {
     method: "POST",
     headers,
     body: JSON.stringify({
       name,
       target: "production",
+      ...(siteEnv ? { env: siteEnv, build: { env: siteEnv } } : {}),
       files: Object.entries(files).map(([file, data]) => ({ file, data, encoding: "utf-8" })),
       projectSettings: {
         framework: "vite",

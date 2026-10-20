@@ -85,6 +85,7 @@ export default function DeployButton({
         action: "create",
         token: t,
         name: `${slug}-${projectId.slice(0, 6)}`,
+        projectId,
         files: toRepoFiles(files, name),
       });
 
