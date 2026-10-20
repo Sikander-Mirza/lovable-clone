@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Eye, Code2, Wrench } from "lucide-react";
+import { Eye, Code2, Pencil, Wrench } from "lucide-react";
 import { buildPreviewDoc } from "@/lib/previewDoc";
+import { sameFiles } from "@/lib/versions";
+import EditBar, { type Selection } from "./EditBar";
 
 const MAX_APP_DATA = 1_000_000; // chars of persisted app data per project
 
@@ -20,25 +22,46 @@ export default function Preview({
   files,
   projectId,
   onFix,
+  onSourceEdit,
+  editDisabled,
 }: {
   files: Record<string, string>;
   projectId: string;
   /** Called with the runtime error text when the user clicks "Fix with AI". */
   onFix?: (error: string) => void;
+  /** Called when a visual edit changed a source file. */
+  onSourceEdit?: (path: string, source: string) => void;
+  editDisabled?: boolean;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [doc, setDoc] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [sel, setSel] = useState<Selection | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const paths = Object.keys(files);
   const current = selected && selected in files ? selected : paths[0];
+
+  // What the iframe currently has, so visual edits (already applied in the DOM)
+  // don't trigger a reload when they flow back in through `files`.
+  const built = useRef<Record<string, string> | null>(null);
+  const editModeRef = useRef(false);
+  const onSourceEditRef = useRef(onSourceEdit);
+  onSourceEditRef.current = onSourceEdit;
+  editModeRef.current = editMode && !editDisabled;
+
+  const post = (msg: object) => frame.current?.contentWindow?.postMessage(msg, "*");
 
   // Rebuild the preview document shortly after files stop changing.
   useEffect(() => {
     if (!paths.length) return;
+    if (built.current && sameFiles(files, built.current)) return;
     const t = setTimeout(() => {
+      built.current = files;
       setError(null);
+      setSel(null);
       setDoc(buildPreviewDoc(files, readAppData(projectId)));
     }, 400);
     return () => clearTimeout(t);
@@ -46,9 +69,29 @@ export default function Preview({
   }, [files]);
 
   useEffect(() => {
+    post({ type: "mode", on: editMode && !editDisabled });
+    if (!editMode || editDisabled) setSel(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode, editDisabled]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       // Only trust messages from our own preview iframe.
       if (e.source !== frame.current?.contentWindow) return;
+      const d = e.data;
+      if (d?.type === "preview-ready") post({ type: "mode", on: editModeRef.current });
+      if (d?.type === "select") setSel(d.id ? (d as Selection) : null);
+      if (d?.type === "edit-error") setNotice(String(d.message));
+      if (d?.type === "source-update" && typeof d.path === "string" && typeof d.source === "string") {
+        built.current = { ...(built.current ?? {}), [d.path]: d.source };
+        onSourceEditRef.current?.(d.path, d.source);
+      }
       if (e.data?.type === "preview-error") setError(String(e.data.message));
       if (e.data?.type === "storage-sync" && e.data.data && typeof e.data.data === "object") {
         const json = JSON.stringify(e.data.data);
@@ -81,6 +124,20 @@ export default function Preview({
             <Icon size={14} /> {label}
           </button>
         ))}
+        {tab === "preview" && paths.length > 0 && (
+          <button
+            onClick={() => setEditMode((v) => !v)}
+            disabled={editDisabled}
+            title={editDisabled ? "Wait for the AI to finish" : "Edit the page visually"}
+            className={`ml-2 flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm disabled:opacity-40 ${
+              editMode && !editDisabled
+                ? "border-violet-400 bg-violet-600 text-white"
+                : "border-white/15 text-white/60 hover:text-white"
+            }`}
+          >
+            <Pencil size={13} /> Edit
+          </button>
+        )}
         {error && (
           <div className="ml-auto flex items-center gap-2">
             <span className="text-xs text-red-400">Error in preview</span>
@@ -98,6 +155,15 @@ export default function Preview({
           </div>
         )}
       </div>
+
+      {editMode && !editDisabled && tab === "preview" && paths.length > 0 && (
+        <EditBar
+          sel={sel}
+          notice={notice}
+          onText={(text) => post({ type: "setText", text })}
+          onStyle={(op, value) => post({ type: "style", op, value })}
+        />
+      )}
 
       <div className="relative min-h-0 flex-1">
         {!paths.length ? (

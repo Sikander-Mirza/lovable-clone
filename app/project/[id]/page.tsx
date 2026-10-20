@@ -12,6 +12,8 @@ import { getProject, saveProject, type Message, type Project } from "@/lib/store
 import { parseAssistant } from "@/lib/parse";
 import { versionNumber } from "@/lib/versions";
 
+const VISUAL_NOTE = "Visual edits applied.";
+
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -19,6 +21,8 @@ export default function ProjectPage() {
   const [streaming, setStreaming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const started = useRef(false);
+  const projectRef = useRef<Project | null>(null);
+  projectRef.current = project;
 
   const run = useCallback(async (p: Project) => {
     setBusy(true);
@@ -98,6 +102,23 @@ export default function ProjectPage() {
     run(next);
   };
 
+  // A change made in the visual editor: update the file, and fold consecutive
+  // visual edits into one "Visual edits" version instead of spamming history.
+  const onSourceEdit = (path: string, source: string) => {
+    const p = projectRef.current;
+    if (!p) return;
+    const files = { ...p.files, [path]: source };
+    const last = p.messages[p.messages.length - 1];
+    const messages: Message[] =
+      last?.role === "assistant" && last.content === VISUAL_NOTE
+        ? [...p.messages.slice(0, -1), { ...last, snapshot: files }]
+        : [...p.messages, { role: "assistant", content: VISUAL_NOTE, snapshot: files }];
+    const next: Project = { ...p, files, messages };
+    projectRef.current = next;
+    saveProject(next);
+    setProject(next);
+  };
+
   const restore = (index: number) => {
     const snap = project.messages[index]?.snapshot;
     if (!snap || busy) return;
@@ -139,6 +160,8 @@ export default function ProjectPage() {
         <Preview
           files={liveFiles}
           projectId={project.id}
+          onSourceEdit={onSourceEdit}
+          editDisabled={busy}
           onFix={
             busy
               ? undefined

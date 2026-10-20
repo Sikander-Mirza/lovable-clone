@@ -41,6 +41,9 @@ Attach, paste or drag screenshots/designs into the prompt box (home page or chat
 - **Saved app data:** generated apps can use `localStorage`; it is persisted per project in your browser (`lovable-clone:appdata:<id>`), so things like a kanban board keep their data across reloads. `sessionStorage` is in-memory only.
 - **Multi-page apps:** generated apps use `react-router-dom` (`HashRouter`). In the sandboxed preview both routers are swapped for `MemoryRouter` (`lib/previewDoc.ts`); the exported/deployed app uses real routing.
 
+## Visual editor
+Click **Edit** above the preview, then click any element to select it. Double-click text to edit it in place (Enter to save, Esc to cancel). The toolbar changes text color, background, font size, bold and corner radius. Edits are written into the real source files (via Babel AST positions, `EDITOR` in `lib/previewDoc.ts`), appear as a single "Visual edits applied" version in the history, and don't reload the preview. Text or classes that come from code (e.g. `{items.map(...)}` or `className={cn(...)}`) can't be edited visually; ask the AI for those.
+
 ## Roadmap
 All items done: auth + cloud persistence, GitHub sync, one-click deploy, version history, image attachments, Fix-with-AI, persistent app data, multi-page routing.
 Ideas: streaming edits as diffs, cloud storage for generated apps' data, a templates gallery.

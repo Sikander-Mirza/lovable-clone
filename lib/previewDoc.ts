@@ -69,8 +69,10 @@ function build(path) {
     code = "const s=document.createElement('style');s.textContent=" + JSON.stringify(files[path]) + ";document.head.appendChild(s);export default {};";
   } else {
     try {
+      window.__lvFile = path;
       code = Babel.transform(files[path], {
         presets: [["react", { runtime: "automatic" }]],
+        plugins: [window.__lvPlugin],
         filename: path,
       }).code;
     } catch (e) {
@@ -102,6 +104,248 @@ window.addEventListener("unhandledrejection", (e) => showError(e.reason && e.rea
   } catch (e) {
     showError(e && e.message || e);
   }
+})();
+`;
+
+// Visual editor running inside the preview iframe. Every host JSX element gets a
+// data-lv="<file>#<n>" id (n = index among host elements in source order). In edit
+// mode, clicks select elements, double-click edits text, and the parent toolbar can
+// change classes. Edits are applied to the *source* via Babel AST positions, then
+// the new source is posted to the parent (source-update), so changes are real code.
+const EDITOR = String.raw`
+(function () {
+  var B = window.Babel && Babel.packages;
+  var ok = !!(B && B.parser && B.traverse);
+  if (!ok) { window.__lvPlugin = function () { return { visitor: {} }; }; return; }
+  var traverse = B.traverse.default || B.traverse;
+  var files = window.__FILES__;
+  var mode = false, sel = null, editing = null, cancelled = false, editOld = "", hoverEl = null;
+
+  function send(m) { parent.postMessage(m, "*"); }
+  function isHost(el) { var n = el.openingElement.name; return n.type === "JSXIdentifier" && /^[a-z]/.test(n.name); }
+  function hostElements(ast) {
+    var out = [];
+    traverse(ast, { JSXElement: function (p) { if (isHost(p.node)) out.push(p.node); } });
+    return out;
+  }
+
+  window.__lvPlugin = function (api) {
+    var idx = new WeakMap();
+    return {
+      visitor: {
+        Program: function (path) {
+          var i = 0;
+          path.traverse({ JSXElement: function (p) { if (isHost(p.node)) idx.set(p.node.openingElement, i++); } });
+        },
+        JSXOpeningElement: function (path) {
+          var i = idx.get(path.node);
+          if (i === undefined) return;
+          var t = api.types;
+          path.node.attributes.push(t.jsxAttribute(t.jsxIdentifier("data-lv"), t.stringLiteral(window.__lvFile + "#" + i)));
+        }
+      }
+    };
+  };
+
+  var COLOR = "(\\[(#[0-9a-fA-F]{3,8}|rgba?\\([^\\]]*\\)|hsla?\\([^\\]]*\\))\\]|white|black|transparent|current|inherit|(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d{2,3})(\\/\\d+)?";
+  var CATS = {
+    textColor: new RegExp("^text-" + COLOR + "$"),
+    bg: new RegExp("^bg-" + COLOR + "$"),
+    fontSize: /^text-(xs|sm|base|lg|xl|[2-9]xl)$/,
+    fontWeight: /^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)$/,
+    radius: /^rounded(-(none|sm|md|lg|xl|2xl|3xl|full))?$/
+  };
+  function tokenFor(op, v) {
+    if (!v) return "";
+    if (op === "textColor") return "text-[" + v + "]";
+    if (op === "bg") return "bg-[" + v + "]";
+    if (op === "fontSize") return "text-" + v;
+    if (op === "fontWeight") return "font-" + v;
+    if (op === "radius") return "rounded-" + v;
+    return "";
+  }
+
+  function withNode(id, fn) {
+    try {
+      var parts = id.split("#");
+      var path = parts[0], n = parseInt(parts[1], 10);
+      var src = files[path];
+      var ast = B.parser.parse(src, { sourceType: "module", plugins: ["jsx"] });
+      var el = hostElements(ast)[n];
+      if (!el) return null;
+      return fn(el, src, path);
+    } catch (e) { return null; }
+  }
+  function splice(path, src, start, end, text) {
+    var out = src.slice(0, start) + text + src.slice(end);
+    files[path] = out;
+    send({ type: "source-update", path: path, source: out });
+  }
+  function classAttr(el) {
+    var a = el.openingElement.attributes.filter(function (x) { return x.type === "JSXAttribute" && x.name && x.name.name === "className"; });
+    return a[0] || null;
+  }
+  function textNodeOf(el) {
+    var kids = el.children;
+    if (!kids.length || !kids.every(function (k) { return k.type === "JSXText"; })) return null;
+    var real = kids.filter(function (k) { return k.value.trim(); });
+    return real.length === 1 ? real[0] : null;
+  }
+  function inspectId(id) {
+    return withNode(id, function (el) {
+      var a = classAttr(el);
+      return { canText: !!textNodeOf(el), canClass: !a || (a.value && a.value.type === "StringLiteral") };
+    });
+  }
+
+  function setText(id, text) {
+    var done = withNode(id, function (el, src, path) {
+      var tn = textNodeOf(el);
+      if (!tn) return false;
+      var raw = src.slice(tn.start, tn.end);
+      var lead = raw.match(/^\s*/)[0], trail = raw.match(/\s*$/)[0];
+      var body = /[{}<>]/.test(text) ? "{" + JSON.stringify(text) + "}" : text.replace(/&/g, "&amp;");
+      splice(path, src, tn.start, tn.end, lead + body + trail);
+      return true;
+    });
+    if (!done) send({ type: "edit-error", message: "This text comes from code, so it can't be edited here. Ask the AI instead." });
+    return !!done;
+  }
+
+  function applyStyle(op, val) {
+    if (!sel) return;
+    var next = withNode(sel.getAttribute("data-lv"), function (el, src, path) {
+      var a = classAttr(el);
+      if (a && !(a.value && a.value.type === "StringLiteral")) return null;
+      var cur = a ? a.value.value : "";
+      var re = CATS[op];
+      var toks = cur.split(/\s+/).filter(function (t) { return t && !re.test(t); });
+      var nt = tokenFor(op, val);
+      if (nt) toks.push(nt);
+      var joined = toks.join(" ");
+      if (a) splice(path, src, a.value.start + 1, a.value.end - 1, joined);
+      else splice(path, src, el.openingElement.name.end, el.openingElement.name.end, ' className="' + joined + '"');
+      return joined;
+    });
+    if (next === null) { send({ type: "edit-error", message: "This element's classes are dynamic, so styles can't be edited here. Ask the AI instead." }); return; }
+    sel.className = next;
+    select(sel);
+  }
+
+  function hex(c) {
+    var m = c.match(/rgba?\(([^)]+)\)/);
+    if (!m) return "";
+    var p = m[1].split(",").map(function (x) { return parseFloat(x); });
+    if (p.length > 3 && p[3] === 0) return "";
+    return "#" + [p[0], p[1], p[2]].map(function (n) { return ("0" + Math.round(n).toString(16)).slice(-2); }).join("");
+  }
+
+  function mkOverlay(color) {
+    var d = document.createElement("div");
+    d.style.cssText = "position:fixed;pointer-events:none;z-index:2147483646;display:none;box-sizing:border-box;border:2px solid " + color;
+    document.documentElement.appendChild(d);
+    return d;
+  }
+  var hoverOv = mkOverlay("rgba(139,92,246,.55)"), selOv = mkOverlay("#8b5cf6");
+  function place(ov, el) {
+    if (!el || !document.documentElement.contains(el)) { ov.style.display = "none"; return; }
+    var r = el.getBoundingClientRect();
+    ov.style.display = "block";
+    ov.style.left = r.left + "px"; ov.style.top = r.top + "px";
+    ov.style.width = r.width + "px"; ov.style.height = r.height + "px";
+  }
+  function redraw() {
+    place(hoverOv, mode && !editing && hoverEl !== sel ? hoverEl : null);
+    place(selOv, mode ? sel : null);
+  }
+  window.addEventListener("scroll", redraw, true);
+  window.addEventListener("resize", redraw);
+
+  function tgt(t) { return t && t.closest ? t.closest("[data-lv]") : null; }
+
+  function select(el) {
+    sel = el;
+    redraw();
+    if (!el) { send({ type: "select", id: null }); return; }
+    var id = el.getAttribute("data-lv");
+    var info = inspectId(id) || { canText: false, canClass: false };
+    var cs = getComputedStyle(el);
+    send({
+      type: "select", id: id, tag: el.tagName.toLowerCase(),
+      text: info.canText ? el.textContent.trim() : null,
+      canText: info.canText, canClass: info.canClass,
+      color: hex(cs.color), bg: hex(cs.backgroundColor),
+      fontSize: Math.round(parseFloat(cs.fontSize)), bold: parseInt(cs.fontWeight, 10) >= 600
+    });
+  }
+
+  function onKey(e) {
+    if (e.key === "Enter") { e.preventDefault(); editing && editing.blur(); }
+    else if (e.key === "Escape") { cancelled = true; if (editing) { editing.textContent = editOld; editing.blur(); } }
+  }
+  function startEdit(el) {
+    var info = inspectId(el.getAttribute("data-lv"));
+    if (!info || !info.canText) {
+      send({ type: "edit-error", message: "This text comes from code, so it can't be edited here. Ask the AI instead." });
+      return;
+    }
+    editing = el; cancelled = false; editOld = el.textContent;
+    el.contentEditable = "true";
+    el.style.outline = "none";
+    el.focus();
+    var r = document.createRange(); r.selectNodeContents(el);
+    var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    el.addEventListener("keydown", onKey);
+    el.addEventListener("blur", finishEdit);
+    redraw();
+  }
+  function finishEdit() {
+    var el = editing;
+    if (!el) return;
+    editing = null;
+    el.removeEventListener("keydown", onKey);
+    el.removeEventListener("blur", finishEdit);
+    el.removeAttribute("contenteditable");
+    el.style.outline = "";
+    if (!cancelled) {
+      var t = el.innerText.replace(/\s*\n\s*/g, " ").trim();
+      if (!t) el.textContent = editOld;
+      else if (t !== editOld.trim()) {
+        if (!setText(el.getAttribute("data-lv"), t)) el.textContent = editOld;
+      }
+    }
+    select(el);
+  }
+
+  document.addEventListener("mouseover", function (e) { if (!mode || editing) return; hoverEl = tgt(e.target); redraw(); }, true);
+  document.addEventListener("click", function (e) {
+    if (!mode) return;
+    if (editing && editing.contains(e.target)) return;
+    e.preventDefault(); e.stopPropagation();
+    if (editing) finishEdit();
+    select(tgt(e.target));
+  }, true);
+  document.addEventListener("dblclick", function (e) {
+    if (!mode) return;
+    e.preventDefault(); e.stopPropagation();
+    var el = tgt(e.target);
+    if (el) { select(el); startEdit(el); }
+  }, true);
+  document.addEventListener("submit", function (e) { if (mode) e.preventDefault(); }, true);
+
+  window.addEventListener("message", function (e) {
+    if (e.source !== parent) return;
+    var m = e.data || {};
+    if (m.type === "mode") {
+      mode = !!m.on;
+      if (!mode) { if (editing) finishEdit(); sel = null; hoverEl = null; send({ type: "select", id: null }); }
+      redraw();
+    } else if (m.type === "setText" && sel) {
+      if (setText(sel.getAttribute("data-lv"), String(m.text))) { sel.textContent = String(m.text); select(sel); }
+    } else if (m.type === "style" && sel) {
+      applyStyle(m.op, m.value);
+    }
+  });
 })();
 `;
 
@@ -159,6 +403,7 @@ export function buildPreviewDoc(
 <body>
 <div id="root"></div>
 <script>window.__FILES__ = ${safe(JSON.stringify(files))};</script>
+<script>${EDITOR}</script>
 <script>${RUNNER}</script>
 </body>
 </html>`;
