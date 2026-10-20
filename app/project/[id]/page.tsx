@@ -45,21 +45,22 @@ export default function ProjectPage() {
       files: { ...p.files, ...files },
       messages: [...p.messages, { role: "assistant", content: raw }],
     };
-    saveProject(next);
+    await saveProject(next);
     setProject(next);
     setStreaming(null);
     setBusy(false);
   }, []);
 
   useEffect(() => {
-    const p = getProject(id);
-    if (!p) return router.replace("/");
-    setProject(p);
-    // A brand-new project has only the first user message: kick off generation.
-    if (!started.current && p.messages.length === 1 && p.messages[0].role === "user") {
-      started.current = true;
-      run(p);
-    }
+    getProject(id).then((p) => {
+      if (!p) return router.replace("/");
+      setProject(p);
+      // A brand-new project has only the first user message: kick off generation.
+      if (!started.current && p.messages.length === 1 && p.messages[0].role === "user") {
+        started.current = true;
+        run(p);
+      }
+    });
   }, [id, router, run]);
 
   // Live files = saved files overlaid with whatever has streamed in so far.

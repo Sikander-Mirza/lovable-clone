@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowUp, Heart, Trash2 } from "lucide-react";
+import AuthButton from "@/components/AuthButton";
 import { createProject, deleteProject, listProjects, type Project } from "@/lib/store";
 
 const IDEAS = [
@@ -18,17 +19,23 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
 
-  useEffect(() => setProjects(listProjects()), []);
+  const refresh = () => listProjects().then(setProjects);
+  useEffect(() => {
+    refresh();
+  }, []);
 
-  const start = (text: string) => {
+  const start = async (text: string) => {
     const t = text.trim();
     if (!t) return;
-    const p = createProject(t);
+    const p = await createProject(t);
     router.push(`/project/${p.id}`);
   };
 
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center px-6 pt-28">
+      <div className="absolute right-6 top-5">
+        <AuthButton onChange={refresh} />
+      </div>
       <h1 className="flex items-center gap-3 text-5xl font-bold tracking-tight">
         Build something <Heart className="fill-pink-500 text-pink-500" size={44} />
       </h1>
@@ -87,9 +94,9 @@ export default function Home() {
                   </div>
                 </Link>
                 <button
-                  onClick={() => {
-                    deleteProject(p.id);
-                    setProjects(listProjects());
+                  onClick={async () => {
+                    await deleteProject(p.id);
+                    refresh();
                   }}
                   className="ml-2 text-white/30 opacity-0 hover:text-red-400 group-hover:opacity-100"
                 >

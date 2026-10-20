@@ -1,3 +1,5 @@
+import { currentUserId, getSupabase } from "./supabase";
+
 export type Message = { role: "user" | "assistant"; content: string };
 
 export type Project = {
@@ -8,9 +10,11 @@ export type Project = {
   updatedAt: number;
 };
 
+// Storage backend: Supabase when signed in, otherwise localStorage.
+
 const KEY = "lovable-clone:projects";
 
-function readAll(): Project[] {
+function readLocal(): Project[] {
   try {
     return JSON.parse(localStorage.getItem(KEY) || "[]");
   } catch {
@@ -18,34 +22,92 @@ function readAll(): Project[] {
   }
 }
 
-function writeAll(list: Project[]) {
+function writeLocal(list: Project[]) {
   try {
     localStorage.setItem(KEY, JSON.stringify(list));
   } catch {}
 }
 
-export const listProjects = () => readAll().sort((a, b) => b.updatedAt - a.updatedAt);
+type Row = {
+  id: string;
+  name: string;
+  messages: Message[];
+  files: Record<string, string>;
+  updated_at: string;
+};
 
-export const getProject = (id: string) => readAll().find((p) => p.id === id);
+const fromRow = (r: Row): Project => ({
+  id: r.id,
+  name: r.name,
+  messages: r.messages,
+  files: r.files,
+  updatedAt: new Date(r.updated_at).getTime(),
+});
 
-export function saveProject(p: Project) {
-  const list = readAll().filter((x) => x.id !== p.id);
+export async function listProjects(): Promise<Project[]> {
+  const sb = getSupabase();
+  if (sb && (await currentUserId())) {
+    const { data } = await sb.from("projects").select("*").order("updated_at", { ascending: false });
+    return (data ?? []).map(fromRow);
+  }
+  return readLocal().sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function getProject(id: string): Promise<Project | undefined> {
+  const sb = getSupabase();
+  if (sb && (await currentUserId())) {
+    const { data } = await sb.from("projects").select("*").eq("id", id).maybeSingle();
+    return data ? fromRow(data) : undefined;
+  }
+  return readLocal().find((p) => p.id === id);
+}
+
+export async function saveProject(p: Project): Promise<void> {
+  const sb = getSupabase();
+  const uid = await currentUserId();
+  if (sb && uid) {
+    await sb.from("projects").upsert({
+      id: p.id,
+      user_id: uid,
+      name: p.name,
+      messages: p.messages,
+      files: p.files,
+      updated_at: new Date().toISOString(),
+    });
+    return;
+  }
+  const list = readLocal().filter((x) => x.id !== p.id);
   list.push({ ...p, updatedAt: Date.now() });
-  writeAll(list);
+  writeLocal(list);
 }
 
-export function deleteProject(id: string) {
-  writeAll(readAll().filter((p) => p.id !== id));
+export async function deleteProject(id: string): Promise<void> {
+  const sb = getSupabase();
+  if (sb && (await currentUserId())) {
+    await sb.from("projects").delete().eq("id", id);
+    return;
+  }
+  writeLocal(readLocal().filter((p) => p.id !== id));
 }
 
-export function createProject(prompt: string): Project {
+export async function createProject(prompt: string): Promise<Project> {
   const p: Project = {
-    id: Math.random().toString(36).slice(2, 10),
+    id: crypto.randomUUID(),
     name: prompt.slice(0, 40) || "Untitled",
     messages: [{ role: "user", content: prompt }],
     files: {},
     updatedAt: Date.now(),
   };
-  saveProject(p);
+  await saveProject(p);
   return p;
 }
+
+/** Copy browser-only projects into the signed-in account. Returns how many were moved. */
+export async function importLocalProjects(): Promise<number> {
+  const local = readLocal();
+  for (const p of local) await saveProject(p);
+  if (local.length) writeLocal([]);
+  return local.length;
+}
+
+export const localProjectCount = () => readLocal().length;
