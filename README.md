@@ -70,6 +70,25 @@ When you submit a prompt on the home page, a short fixed questionnaire appears f
 - **Projects:** rename (click the name in the project header, or the pencil on the home page), duplicate, delete.
 - **Download ZIP:** the download button in the project header exports a runnable Vite project (`lib/zip.ts`, no dependencies).
 
+## Quality: auto-fix and suggestions
+- **Auto-fix loop:** right after a generation, if the preview throws, the app asks the AI to fix it by itself (up to 2 attempts per generation; the chat shows "fixing it automatically"). The manual **Fix with AI** button is still there.
+- **Suggestion chips:** under the latest version you get one-click follow-ups (testimonials, pricing, FAQ, contact form, photos, mobile polish...) chosen from what the project is still missing (`lib/suggestions.ts`).
+
+## Theme (brand color and fonts)
+The **Theme** button above the preview restyles the whole site: brand color (a full 50-950 scale is derived from it) and body/heading fonts from a curated Google Fonts list. It is stored as `/theme.json` in the project, so it is versioned, undoable and exported. Generated code uses `brand-*` classes and `font-sans` / `font-display`, which Tailwind gets from this theme (`lib/theme.ts`); the AI creates `/theme.json` for new projects from your chosen color. Elements with a fixed color keep it.
+
+## Photos
+`lib/photos.ts` is a curated library of 46 real Unsplash photos (every ID checked, grouped: business, tech, cafe, food, people, nature, fitness, health, education, event, product, shop, real estate). The AI may only use these (so no broken or irrelevant images), and the visual editor's image field has a **Library** picker. (Free Gemini keys have no image-generation quota, so photos come from this library.)
+
+## Forms and the Data tab
+Generated forms save with `import { submitForm } from "lovable"`. In the preview, submissions go to the **Data** tab (view, delete, export CSV); signed-in users keep them in Supabase. A deployed site posts straight to Supabase (`src/lovable.js`, with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_PROJECT_ID` that the Deploy button sets for you); without them it falls back to the visitor's localStorage. **Re-run `supabase/schema.sql`** in the SQL editor to create the `submissions` table (safe to run again). Anyone can submit, only the project's owner can read.
+
+## Hosting it for other people
+`lib/guard.ts` protects `/api/generate`: a per-IP rate limit (`RATE_LIMIT_PER_HOUR`, default 120, in memory per server instance), a request size cap, and `REQUIRE_AUTH=true` to demand a signed-in Supabase user. Also set `SESSION_SECRET` and `APP_URL`. Keep your `.env.local` out of git (it is ignored).
+
+## Tests
+`npm test` runs 18 tests (parser, asset placeholders, ZIP structure and CRCs, theme, questionnaire, suggestions, rate limit/auth guard, export, encrypted sessions). The visual-editor engine runs inside the preview iframe and is covered by manual/browser checks rather than these tests. To run a production build while `next dev` is running: `NEXT_DIST_DIR=.next-build npm run build`.
+
 ## Roadmap
-All items done: auth + cloud persistence, GitHub sync, one-click deploy, version history, image attachments, Fix-with-AI, persistent app data, multi-page routing.
-Ideas: streaming edits as diffs, cloud storage for generated apps' data, a templates gallery.
+Done: auth + cloud persistence, GitHub sync, one-click deploy, version history, image attachments, auto-fix, persistent app data, multi-page routing, visual editor, theme, photos, forms backend, hosting guard, tests.
+Ideas: plan-then-build generation, sending only relevant files to the model (cost), responsive-specific styling in the editor, custom domains and SEO fields, AI-generated images (needs a paid image quota), diffs of AI changes.

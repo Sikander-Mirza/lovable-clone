@@ -15,6 +15,7 @@ import { parseAssistant } from "@/lib/parse";
 import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt } from "@/lib/prompt";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { THEME_PATH, serializeTheme, type Theme } from "@/lib/theme";
+import { getSupabase } from "@/lib/supabase";
 import { compactFiles, restoreAll, type AssetTable } from "@/lib/assets";
 
 const VISUAL_NOTE = "Visual edits applied.";
@@ -55,9 +56,12 @@ export default function ProjectPage() {
     const compact = compactFiles(p.files);
     assetTable.current = compact.table;
     try {
+      // Signed-in users send their session token (needed when the server has REQUIRE_AUTH=true).
+      const session = await getSupabase()?.auth.getSession();
+      const token = session?.data.session?.access_token;
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         // Strip snapshots; only the latest message carries its images (keeps requests small).
         body: JSON.stringify({
           messages: p.messages.map((m, i) => ({

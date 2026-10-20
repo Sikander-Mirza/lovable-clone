@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { SYSTEM_PROMPT, filesContext } from "@/lib/prompt";
+import { guardRequest } from "@/lib/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -29,6 +30,9 @@ const friendly = (e: any) => {
 };
 
 export async function POST(req: Request) {
+  const blocked = await guardRequest(req);
+  if (blocked) return blocked;
+
   const apiKey = process.env.LLM_API_KEY;
   if (!apiKey) {
     return new Response("Missing LLM_API_KEY. Copy .env.example to .env.local and set it.", {
