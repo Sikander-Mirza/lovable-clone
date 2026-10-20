@@ -30,5 +30,8 @@ On a project page click **GitHub**, enter `owner/name` and a personal access tok
 ## Deploy to Vercel
 Click **Deploy** on a project page, paste a Vercel token (vercel.com/account/tokens), and the exported Vite app is built and published to a live `*.vercel.app` URL. Redeploying updates the same Vercel project. `app/api/deploy` proxies the Vercel API (it has no browser CORS) and does not store the token.
 
+## Version history
+Every AI reply stores a snapshot of the project (`snapshot` on the message, so no database change is needed). Each reply in the chat shows its version number and a **Restore** button when it differs from the current state. Restoring adds a new version, so you can always jump back again.
+
 ## Roadmap
-~~Auth + cloud persistence (Supabase)~~ done. ~~GitHub sync~~ done. ~~One-click deploy~~ done. Next: image attachments, version history/rollback.
+~~Auth + cloud persistence (Supabase)~~ done. ~~GitHub sync~~ done. ~~One-click deploy~~ done. ~~Version history~~ done. Next: image attachments.

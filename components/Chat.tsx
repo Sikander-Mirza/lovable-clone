@@ -1,18 +1,32 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, FileCode2, Loader2 } from "lucide-react";
+import { ArrowUp, FileCode2, Loader2, RotateCcw } from "lucide-react";
+import { sameFiles, versionNumber } from "@/lib/versions";
 import type { Message } from "@/lib/store";
 import { parseAssistant } from "@/lib/parse";
 
 type Props = {
   messages: Message[];
+  currentFiles: Record<string, string>;
   streaming: string | null; // raw in-flight assistant text
   busy: boolean;
   onSend: (text: string) => void;
+  onRestore: (messageIndex: number) => void;
 };
 
-function AssistantBubble({ raw, live }: { raw: string; live?: boolean }) {
+function AssistantBubble({
+  raw,
+  live,
+  version,
+  onRestore,
+}: {
+  raw: string;
+  live?: boolean;
+  version?: number;
+  /** present only when this version differs from the current project state */
+  onRestore?: () => void;
+}) {
   const { files, openPath, text } = parseAssistant(raw);
   const paths = Object.keys(files);
   return (
@@ -35,11 +49,24 @@ function AssistantBubble({ raw, live }: { raw: string; live?: boolean }) {
           ))}
         </div>
       )}
+      {version !== undefined && (
+        <div className="flex items-center gap-2 text-[11px] text-white/35">
+          <span>Version {version}</span>
+          {onRestore && (
+            <button
+              onClick={onRestore}
+              className="flex items-center gap-1 rounded border border-white/15 px-1.5 py-0.5 text-white/60 hover:bg-white/10 hover:text-white"
+            >
+              <RotateCcw size={10} /> Restore
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-export default function Chat({ messages, streaming, busy, onSend }: Props) {
+export default function Chat({ messages, currentFiles, streaming, busy, onSend, onRestore }: Props) {
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -63,7 +90,14 @@ export default function Chat({ messages, streaming, busy, onSend }: Props) {
               {m.content}
             </div>
           ) : (
-            <AssistantBubble key={i} raw={m.content} />
+            <AssistantBubble
+              key={i}
+              raw={m.content}
+              version={m.snapshot ? versionNumber(messages, i) : undefined}
+              onRestore={
+                m.snapshot && !busy && !sameFiles(m.snapshot, currentFiles) ? () => onRestore(i) : undefined
+              }
+            />
           )
         )}
         {streaming !== null && <AssistantBubble raw={streaming} live />}

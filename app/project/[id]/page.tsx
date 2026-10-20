@@ -10,6 +10,7 @@ import GitHubSync from "@/components/GitHubSync";
 import DeployButton from "@/components/DeployButton";
 import { getProject, saveProject, type Message, type Project } from "@/lib/store";
 import { parseAssistant } from "@/lib/parse";
+import { versionNumber } from "@/lib/versions";
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +28,11 @@ export default function ProjectPage() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: p.messages, files: p.files }),
+        // Strip snapshots: the model only needs role + content.
+        body: JSON.stringify({
+          messages: p.messages.map((m) => ({ role: m.role, content: m.content })),
+          files: p.files,
+        }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
       const reader = res.body.getReader();
@@ -42,10 +47,11 @@ export default function ProjectPage() {
       raw += `\n\n[error] ${e?.message ?? "request failed"}`;
     }
     const { files } = parseAssistant(raw);
+    const merged = { ...p.files, ...files };
     const next: Project = {
       ...p,
-      files: { ...p.files, ...files },
-      messages: [...p.messages, { role: "assistant", content: raw }],
+      files: merged,
+      messages: [...p.messages, { role: "assistant", content: raw, snapshot: merged }],
     };
     await saveProject(next);
     setProject(next);
@@ -85,6 +91,21 @@ export default function ProjectPage() {
     run(next);
   };
 
+  const restore = (index: number) => {
+    const snap = project.messages[index]?.snapshot;
+    if (!snap || busy) return;
+    const next: Project = {
+      ...project,
+      files: snap,
+      messages: [
+        ...project.messages,
+        { role: "assistant", content: `Restored the version from step ${versionNumber(project.messages, index)}.`, snapshot: snap },
+      ],
+    };
+    saveProject(next);
+    setProject(next);
+  };
+
   return (
     <div className="flex h-screen">
       <aside className="flex w-[380px] shrink-0 flex-col border-r border-white/10">
@@ -97,7 +118,14 @@ export default function ProjectPage() {
           <DeployButton projectId={project.id} name={project.name} files={project.files} />
         </div>
         <div className="min-h-0 flex-1">
-          <Chat messages={project.messages} streaming={streaming} busy={busy} onSend={send} />
+          <Chat
+            messages={project.messages}
+            currentFiles={project.files}
+            streaming={streaming}
+            busy={busy}
+            onSend={send}
+            onRestore={restore}
+          />
         </div>
       </aside>
       <main className="min-w-0 flex-1">

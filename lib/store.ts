@@ -1,6 +1,11 @@
 import { currentUserId, getSupabase } from "./supabase";
 
-export type Message = { role: "user" | "assistant"; content: string };
+export type Message = {
+  role: "user" | "assistant";
+  content: string;
+  /** Full project files right after this assistant reply: powers version history. */
+  snapshot?: Record<string, string>;
+};
 
 export type Project = {
   id: string;
