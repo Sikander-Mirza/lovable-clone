@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Pencil, Sparkles } from "lucide-react";
 import { toRepoFiles } from "@/lib/exportProject";
 import { createZip, downloadBlob } from "@/lib/zip";
 import Chat from "@/components/Chat";
@@ -27,6 +27,33 @@ export default function ProjectPage() {
   const [streaming, setStreaming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const started = useRef(false);
+  // Width of the chat panel (user-resizable, remembered in this browser).
+  const [chatWidth, setChatWidth] = useState(400);
+  const [resizing, setResizing] = useState(false);
+  useEffect(() => {
+    try {
+      const w = Number(localStorage.getItem("lovable-clone:chat-width"));
+      if (w >= 320 && w <= 640) setChatWidth(w);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (!resizing) return;
+    const move = (e: MouseEvent) => setChatWidth(Math.max(320, Math.min(640, e.clientX)));
+    const up = () => setResizing(false);
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [resizing]);
+  useEffect(() => {
+    if (resizing) return;
+    try {
+      localStorage.setItem("lovable-clone:chat-width", String(chatWidth));
+    } catch {}
+  }, [resizing, chatWidth]);
+
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const assetTable = useRef<AssetTable>({});
@@ -275,36 +302,51 @@ export default function ProjectPage() {
   };
 
   return (
-    <div className="flex h-screen">
-      <aside className="flex w-[380px] shrink-0 flex-col border-r border-white/10">
-        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-          <Link href="/" className="text-white/50 hover:text-white">
-            <ArrowLeft size={16} />
-          </Link>
-          {renaming ? (
-            <input
-              autoFocus
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              onBlur={commitName}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitName();
-                if (e.key === "Escape") setRenaming(false);
-              }}
-              className="min-w-0 flex-1 rounded-md border border-white/20 bg-black/30 px-2 py-0.5 text-sm outline-none"
-            />
-          ) : (
-            <button
-              onClick={() => {
-                setNameDraft(project.name);
-                setRenaming(true);
-              }}
-              title="Rename project"
-              className="min-w-0 flex-1 truncate text-left text-sm font-medium hover:text-violet-300"
-            >
-              {project.name}
-            </button>
-          )}
+    <div className="flex h-screen flex-col">
+      {/* Top bar: where you are, and what you can do with the project */}
+      <header className="flex h-[52px] shrink-0 items-center gap-2 border-b border-white/[.08] bg-[#0a0a10] px-3">
+        <Link href="/" title="All projects" className="icon-btn">
+          <ArrowLeft size={17} />
+        </Link>
+        <Link
+          href="/"
+          title="Home"
+          className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50"
+        >
+          <Sparkles size={14} className="text-white" />
+        </Link>
+        <span className="mx-1 h-5 w-px bg-white/10" />
+        {renaming ? (
+          <input
+            autoFocus
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitName();
+              if (e.key === "Escape") setRenaming(false);
+            }}
+            className="field w-72 py-1"
+          />
+        ) : (
+          <button
+            onClick={() => {
+              setNameDraft(project.name);
+              setRenaming(true);
+            }}
+            title="Rename project"
+            className="group flex min-w-0 max-w-[40vw] items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium hover:bg-white/[.06]"
+          >
+            <span className="truncate">{project.name}</span>
+            <Pencil size={12} className="shrink-0 text-white/0 transition group-hover:text-white/50" />
+          </button>
+        )}
+        {busy && (
+          <span className="ml-1 flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-500/10 px-2.5 py-0.5 text-xs text-violet-200">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" /> Working
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() =>
               downloadBlob(
@@ -314,13 +356,17 @@ export default function ProjectPage() {
             }
             disabled={Object.keys(project.files).length === 0}
             title="Download as a runnable Vite project (.zip)"
-            className="rounded-md border border-white/15 p-1.5 text-white/70 hover:bg-white/10 disabled:opacity-40"
+            className="btn-ghost h-8 px-2.5"
           >
-            <Download size={13} />
+            <Download size={14} /> <span className="hidden md:inline">Download</span>
           </button>
           <GitHubSync projectId={project.id} name={project.name} files={project.files} />
           <DeployButton projectId={project.id} name={project.name} files={project.files} />
         </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+      <aside style={{ width: chatWidth }} className="flex shrink-0 flex-col bg-[#0b0b11]">
         <div className="min-h-0 flex-1">
           <Chat
             messages={project.messages}
@@ -333,6 +379,19 @@ export default function ProjectPage() {
           />
         </div>
       </aside>
+      {/* Drag to resize the chat panel */}
+      <div
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setResizing(true);
+        }}
+        onDoubleClick={() => setChatWidth(400)}
+        title="Drag to resize (double-click to reset)"
+        className="group relative z-10 w-1.5 shrink-0 cursor-col-resize bg-white/[.06] transition hover:bg-violet-400/50"
+      >
+        <span className="absolute left-1/2 top-1/2 h-8 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20 group-hover:bg-white/60" />
+      </div>
+      {resizing && <div className="fixed inset-0 z-50 cursor-col-resize" />}
       <main className="min-w-0 flex-1">
         <Preview
           files={liveFiles}
@@ -356,6 +415,7 @@ export default function ProjectPage() {
           }
         />
       </main>
+      </div>
     </div>
   );
 }

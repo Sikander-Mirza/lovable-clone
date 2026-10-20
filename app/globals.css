@@ -2,6 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body { height: 100%; }
-body { background: #0b0b10; color: #e8e8ee; }
+:root {
+  color-scheme: dark; /* native controls (select popups, scrollbars, date pickers) render dark */
+  --bg: #08080d;
+  --surface: #101017;
+  --border: rgba(255, 255, 255, 0.08);
+}
 
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: #ececf3;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.45);
+}
+
+/* Slim, quiet scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+select option {
+  background: #14141c;
+  color: #ececf3;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.7);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:pointer-events-none disabled:opacity-40;
+  }
+  .btn-ghost {
+    @apply btn border border-white/10 bg-white/[.04] text-white/75 hover:border-white/20 hover:bg-white/10 hover:text-white;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-950/40 hover:brightness-110;
+  }
+  .icon-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/60 transition hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-30;
+  }
+  .field {
+    @apply w-full rounded-lg border border-white/10 bg-white/[.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-violet-400/60 focus:bg-white/[.06];
+  }
+  .seg {
+    @apply inline-flex items-center rounded-lg border border-white/10 bg-white/[.03] p-0.5;
+  }
+  .seg-btn {
+    @apply inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-white/55 transition hover:text-white;
+  }
+  .seg-btn[data-active="true"] {
+    @apply bg-white/10 text-white shadow-sm;
+  }
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm;
+  }
+  .modal {
+    @apply rounded-2xl border border-white/10 bg-[#101017] shadow-2xl shadow-black/60;
+  }
+  .popover {
+    @apply rounded-xl border border-white/10 bg-[#13131b] shadow-2xl shadow-black/60;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-violet-300 via-fuchsia-300 to-pink-300 bg-clip-text text-transparent;
+  }
+}
+
+/* Soft glow + grid behind the home page */
+.bg-glow {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgba(139, 92, 246, 0.22), transparent 70%),
+    radial-gradient(40% 40% at 85% 10%, rgba(217, 70, 239, 0.12), transparent 70%);
+}
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(70% 60% at 50% 0%, black, transparent 80%);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
