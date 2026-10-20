@@ -8,10 +8,10 @@
     "start": "next start"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.65.0",
     "@codesandbox/sandpack-react": "^2.20.0",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",
+    "openai": "^4.104.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

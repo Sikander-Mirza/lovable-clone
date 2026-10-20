@@ -1,12 +1,13 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { SYSTEM_PROMPT, filesContext } from "@/lib/prompt";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return new Response("Missing ANTHROPIC_API_KEY. Copy .env.example to .env.local and set it.", {
+  const apiKey = process.env.LLM_API_KEY;
+  if (!apiKey) {
+    return new Response("Missing LLM_API_KEY. Copy .env.example to .env.local and set it.", {
       status: 500,
     });
   }
@@ -16,8 +17,8 @@ export async function POST(req: Request) {
     files: Record<string, string>;
   };
 
-  const client = new Anthropic();
-  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
+  const client = new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL });
+  const model = process.env.LLM_MODEL || "gemini-3.8-flash";
 
   // Attach the current project files to the latest user turn.
   const msgs = messages.map((m, i) =>
@@ -30,14 +31,15 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const s = client.messages.stream({
+        const s = await client.chat.completions.create({
           model,
-          max_tokens: 32000,
-          system: SYSTEM_PROMPT,
-          messages: msgs,
+          stream: true,
+          messages: [{ role: "system", content: SYSTEM_PROMPT }, ...msgs],
         });
-        s.on("text", (t) => controller.enqueue(encoder.encode(t)));
-        await s.finalMessage();
+        for await (const chunk of s) {
+          const t = chunk.choices[0]?.delta?.content;
+          if (t) controller.enqueue(encoder.encode(t));
+        }
       } catch (e: any) {
         controller.enqueue(encoder.encode(`\n\n[error] ${e?.message ?? "generation failed"}`));
       } finally {
