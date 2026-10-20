@@ -37,7 +37,7 @@ const IDEAS: Idea[] = [
   {
     label: "Add photos",
     prompt: "Add relevant real photos to the hero and the main sections using the photo URL pattern from your instructions.",
-    missing: (c) => !/loremflickr|<img/i.test(c),
+    missing: (c) => !/unsplash|<img/i.test(c),
   },
   {
     label: "Improve mobile layout",

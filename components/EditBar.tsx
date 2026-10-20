@@ -19,6 +19,7 @@ import {
   Upload,
 } from "lucide-react";
 import { fileToDataUrl } from "@/lib/image";
+import { PHOTOS, photoUrl } from "@/lib/photos";
 
 export type Selection = {
   id: string;
@@ -106,6 +107,57 @@ function AddMenu({
                 <Icon size={13} /> {label}
               </button>
             ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Popover with the curated photo library for the selected <img>. */
+function PhotoPicker({ onPick }: { onPick: (src: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [cat, setCat] = useState<string>("business");
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs hover:bg-white/10"
+      >
+        <ImageIcon size={12} /> Library
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-50 mt-1 w-80 rounded-xl border border-white/15 bg-[#14141c] p-3 shadow-2xl">
+            <div className="mb-2 flex flex-wrap gap-1">
+              {Object.keys(PHOTOS).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCat(c)}
+                  className={`rounded-full px-2 py-0.5 text-[11px] capitalize ${
+                    cat === c ? "bg-violet-600 text-white" : "bg-white/5 text-white/60 hover:text-white"
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {PHOTOS[cat].map((id) => (
+                <button
+                  key={id}
+                  onClick={() => {
+                    onPick(photoUrl(id));
+                    setOpen(false);
+                  }}
+                  className="overflow-hidden rounded-md ring-violet-400 hover:ring-2"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photoUrl(id, 200)} alt={cat} className="h-16 w-full object-cover" loading="lazy" />
+                </button>
+              ))}
+            </div>
           </div>
         </>
       )}
@@ -204,6 +256,7 @@ export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelet
           >
             <Upload size={12} /> Upload
           </button>
+          <PhotoPicker onPick={onImage} />
         </div>
       )}
 
