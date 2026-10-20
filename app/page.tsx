@@ -39,6 +39,20 @@ export default function Home() {
       setAskFirst(localStorage.getItem("lovable-clone:ask-questions") !== "off");
     } catch {}
   }, []);
+  // After the first version, let the AI run one extra pass to expand thin results.
+  const [autoExpand, setAutoExpand] = useState(true);
+  useEffect(() => {
+    try {
+      setAutoExpand(localStorage.getItem("lovable-clone:auto-expand") !== "off");
+    } catch {}
+  }, []);
+  const toggleExpand = (on: boolean) => {
+    setAutoExpand(on);
+    try {
+      localStorage.setItem("lovable-clone:auto-expand", on ? "on" : "off");
+    } catch {}
+  };
+
   const toggleAsk = (on: boolean) => {
     setAskFirst(on);
     try {
@@ -104,6 +118,18 @@ export default function Home() {
                 className="accent-violet-500"
               />
               Ask me questions first
+            </label>
+            <label
+              className="flex cursor-pointer items-center gap-1.5 text-xs text-white/45 hover:text-white/70"
+              title="After the first version, the AI automatically expands it into a fuller site (takes about a minute longer)"
+            >
+              <input
+                type="checkbox"
+                checked={autoExpand}
+                onChange={(e) => toggleExpand(e.target.checked)}
+                className="accent-violet-500"
+              />
+              Build thoroughly
             </label>
           </div>
           <button

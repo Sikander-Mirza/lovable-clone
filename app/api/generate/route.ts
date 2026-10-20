@@ -7,17 +7,21 @@ export const maxDuration = 300;
 // Free-tier models are often overloaded (503) or stall before the first token.
 // Try the primary model, retry briefly, then fall back to the next model, as long
 // as nothing has been streamed to the user yet.
-const FIRST_TOKEN_TIMEOUT_MS = 45_000;
+// Slower "thinking" models (e.g. pro) may need a larger value: LLM_FIRST_TOKEN_TIMEOUT_MS.
+const FIRST_TOKEN_TIMEOUT_MS = Number(process.env.LLM_FIRST_TOKEN_TIMEOUT_MS) || 45_000;
 const ATTEMPTS_PER_MODEL = 2;
+
+const isAbort = (e: any) =>
+  e?.name === "AbortError" || /abort/i.test(e?.constructor?.name ?? "") || /aborted/i.test(e?.message ?? "");
 
 const isTransient = (e: any) => {
   const s = e?.status;
-  return s === 429 || s === 500 || s === 502 || s === 503 || s === 504 || e?.name === "AbortError" || e?.code === "ETIMEDOUT";
+  return s === 429 || s === 500 || s === 502 || s === 503 || s === 504 || isAbort(e) || e?.code === "ETIMEDOUT";
 };
 
 const friendly = (e: any) => {
   const s = e?.status;
-  if (s === 503 || s === 429 || e?.name === "AbortError")
+  if (s === 503 || s === 429 || isAbort(e))
     return "The AI model is busy right now (high demand). Please press Retry in a moment.";
   if (s === 401 || s === 403 || s === 400)
     return "The AI service rejected the request. Check LLM_API_KEY and LLM_MODEL in .env.local (Gemini reports a bad key as 400), or the attached image.";

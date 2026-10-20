@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, FileCode2, Loader2, RotateCcw } from "lucide-react";
+import { ArrowUp, FileCode2, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { AttachButton, Thumbs, useAttachments } from "./Attachments";
 import type { Message } from "@/lib/store";
@@ -108,7 +108,11 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
     <div className="flex h-full flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {messages.map((m, i) =>
-          m.role === "user" ? (
+          m.auto ? (
+            <div key={i} className="flex items-center gap-1.5 text-xs text-violet-300/80">
+              <Sparkles size={12} /> Expanding the site: adding missing sections and more detail...
+            </div>
+          ) : m.role === "user" ? (
             <div key={i} className="ml-auto max-w-[85%] space-y-2 rounded-2xl bg-violet-600 px-3.5 py-2 text-sm">
               {m.images && (
                 <div className="flex flex-wrap gap-1.5">

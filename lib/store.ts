@@ -7,6 +7,8 @@ export type Message = {
   images?: string[];
   /** Answers to the pre-build questions; sent to the model together with `content`. */
   details?: string;
+  /** Written by the app, not the user (e.g. the automatic "expand the site" pass). */
+  auto?: boolean;
   /** Full project files right after this assistant reply: powers version history. */
   snapshot?: Record<string, string>;
 };

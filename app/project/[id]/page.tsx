@@ -12,6 +12,7 @@ import GitHubSync from "@/components/GitHubSync";
 import DeployButton from "@/components/DeployButton";
 import { getProject, saveProject, type Message, type Project } from "@/lib/store";
 import { parseAssistant } from "@/lib/parse";
+import { EXPAND_BELOW_CHARS, EXPAND_PROMPT } from "@/lib/prompt";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { compactFiles, restoreAll, type AssetTable } from "@/lib/assets";
 
@@ -40,6 +41,7 @@ export default function ProjectPage() {
   };
   const projectRef = useRef<Project | null>(null);
   projectRef.current = project;
+  const runRef = useRef<((p: Project) => Promise<void>) | null>(null);
 
   const run = useCallback(async (p: Project) => {
     setBusy(true);
@@ -89,9 +91,34 @@ export default function ProjectPage() {
     if (!sameFiles(p.files, merged)) pushHistory(p.files);
     await saveProject(next);
     setProject(next);
+
+    // The first version of a new project is often thin: run one automatic expand pass.
+    const total = Object.values(merged).reduce((n, c) => n + c.length, 0);
+    let autoOn = true;
+    try {
+      autoOn = localStorage.getItem("lovable-clone:auto-expand") !== "off";
+    } catch {}
+    if (
+      !failed &&
+      autoOn &&
+      Object.keys(p.files).length === 0 &&
+      total < EXPAND_BELOW_CHARS &&
+      !p.messages.some((m) => m.auto)
+    ) {
+      const follow: Project = {
+        ...next,
+        messages: [...next.messages, { role: "user", content: EXPAND_PROMPT, auto: true }],
+      };
+      await saveProject(follow);
+      setProject(follow);
+      setStreaming("");
+      return runRef.current?.(follow);
+    }
+
     setStreaming(null);
     setBusy(false);
   }, []);
+  runRef.current = run;
 
   useEffect(() => {
     getProject(id).then((p) => {
