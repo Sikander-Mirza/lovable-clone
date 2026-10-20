@@ -151,7 +151,7 @@ export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelet
     return (
       <div className="flex items-center gap-3 border-b border-white/10 bg-violet-500/10 px-3 py-2 text-xs text-violet-200">
         <AddMenu canAfter={false} onInsert={onInsert} />
-        <span>{notice ?? "Edit mode: click an element to select it, double-click text to edit it."}</span>
+        <span>{notice ?? "Edit mode: click to select, double-click text to edit, drag an element to move it."}</span>
       </div>
     );
   }
