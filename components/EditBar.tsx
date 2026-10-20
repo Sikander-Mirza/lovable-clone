@@ -1,7 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlignCenter, AlignLeft, AlignRight, Bold, Trash2, Upload } from "lucide-react";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  Heading,
+  ImageIcon,
+  Link2,
+  Minus,
+  MousePointerClick,
+  Plus,
+  Square,
+  Trash2,
+  Type,
+  Upload,
+} from "lucide-react";
 import { fileToDataUrl } from "@/lib/image";
 
 export type Selection = {
@@ -30,6 +45,73 @@ const ALIGNS: [string, typeof AlignLeft][] = [
   ["right", AlignRight],
 ];
 
+const ADDABLE: [string, string, typeof Heading][] = [
+  ["heading", "Heading", Heading],
+  ["text", "Text", Type],
+  ["button", "Button", MousePointerClick],
+  ["image", "Image", ImageIcon],
+  ["link", "Link", Link2],
+  ["box", "Box", Square],
+  ["divider", "Divider", Minus],
+];
+
+/** "+ Add" dropdown. New elements go after the selected one or inside it (as last child). */
+function AddMenu({
+  canAfter,
+  onInsert,
+}: {
+  canAfter: boolean;
+  onInsert: (kind: string, where: "after" | "inside") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [where, setWhere] = useState<"after" | "inside">("after");
+  const effective = canAfter ? where : "inside";
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 rounded-md bg-violet-600 px-2 py-1 text-xs font-medium hover:bg-violet-500"
+      >
+        <Plus size={13} /> Add
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-50 mt-1 w-44 rounded-lg border border-white/15 bg-[#14141c] p-1.5 shadow-xl">
+            <div className="mb-1 flex gap-1 rounded-md bg-white/5 p-0.5 text-[11px]">
+              {(["after", "inside"] as const).map((w) => (
+                <button
+                  key={w}
+                  disabled={w === "after" && !canAfter}
+                  onClick={() => setWhere(w)}
+                  className={`flex-1 rounded px-2 py-1 capitalize disabled:opacity-30 ${
+                    effective === w ? "bg-violet-600 text-white" : "text-white/60"
+                  }`}
+                >
+                  {w}
+                </button>
+              ))}
+            </div>
+            {ADDABLE.map(([kind, label, Icon]) => (
+              <button
+                key={kind}
+                onClick={() => {
+                  onInsert(kind, effective);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-white/80 hover:bg-white/10"
+              >
+                <Icon size={13} /> {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 type Props = {
   sel: Selection | null;
   notice: string | null;
@@ -37,9 +119,10 @@ type Props = {
   onStyle: (op: string, value: string) => void;
   onImage: (src: string) => void;
   onDelete: () => void;
+  onInsert: (kind: string, where: "after" | "inside") => void;
 };
 
-export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelete }: Props) {
+export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelete, onInsert }: Props) {
   const [text, setText] = useState("");
   const [imgUrl, setImgUrl] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -66,8 +149,9 @@ export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelet
 
   if (!sel) {
     return (
-      <div className="border-b border-white/10 bg-violet-500/10 px-3 py-2 text-xs text-violet-200">
-        {notice ?? "Edit mode: click an element to select it, double-click text to edit it."}
+      <div className="flex items-center gap-3 border-b border-white/10 bg-violet-500/10 px-3 py-2 text-xs text-violet-200">
+        <AddMenu canAfter={false} onInsert={onInsert} />
+        <span>{notice ?? "Edit mode: click an element to select it, double-click text to edit it."}</span>
       </div>
     );
   }
@@ -75,6 +159,7 @@ export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelet
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/10 bg-violet-500/10 px-3 py-2">
       <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[11px] font-medium">&lt;{sel.tag}&gt;</span>
+      <AddMenu canAfter={sel.canDelete} onInsert={onInsert} />
 
       {sel.canText && (
         <label className="flex items-center gap-1.5">

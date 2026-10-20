@@ -187,10 +187,65 @@ const EDITOR = String.raw`
       return fn(el, src, path);
     } catch (e) { return null; }
   }
-  function splice(path, src, start, end, text, reload) {
+  function splice(path, src, start, end, text, reload, extra) {
     var out = src.slice(0, start) + text + src.slice(end);
     files[path] = out;
-    send({ type: "source-update", path: path, source: out, reload: !!reload });
+    var msg = { type: "source-update", path: path, source: out, reload: !!reload };
+    if (extra) for (var k in extra) msg[k] = extra[k];
+    send(msg);
+  }
+
+  var PLACEHOLDER_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='240'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3C/svg%3E";
+  var SNIPPETS = {
+    heading: '<h2 className="text-2xl font-bold">New heading</h2>',
+    text: '<p className="text-base text-gray-700">New paragraph text</p>',
+    button: '<button className="rounded-lg bg-indigo-600 px-4 py-2 text-white">Button</button>',
+    image: '<img src="' + PLACEHOLDER_IMG + '" alt="Image" className="rounded-lg" />',
+    link: '<a href="#" className="text-indigo-600 underline">Link text</a>',
+    box: '<div className="rounded-xl border border-gray-200 p-6">New section</div>',
+    divider: '<hr className="my-4 border-gray-200" />'
+  };
+  var VOID = { img: 1, input: 1, br: 1, hr: 1 };
+
+  // Insert a new element after (sibling) or inside (last child of) the target.
+  function insertEl(kind, where) {
+    var snippet = SNIPPETS[kind];
+    if (!snippet) return;
+    var target = sel || document.querySelector("[data-lv]");
+    if (!target) { send({ type: "edit-error", message: "Nothing to add to yet. Ask the AI to build something first." }); return; }
+    if (!sel) where = "inside";
+    var res = withNode(target.getAttribute("data-lv"), function (el, src, path) {
+      var lineStart = src.lastIndexOf("\n", el.start - 1) + 1;
+      var base = src.slice(lineStart, el.start).match(/^\s*/)[0];
+      var inside = where === "inside" || (el.__parentType !== "JSXElement" && el.__parentType !== "JSXFragment");
+      var start, end, text;
+      if (!inside) {
+        start = end = el.end;
+        text = "\n" + base + snippet;
+      } else if (el.closingElement) {
+        var p = el.closingElement.start;
+        while (p > el.openingElement.end && /\s/.test(src[p - 1])) p--;
+        start = end = p;
+        text = "\n" + base + "  " + snippet + (p === el.openingElement.end ? "\n" + base : "");
+      } else if (VOID[el.openingElement.name.name]) {
+        return false;
+      } else {
+        start = el.openingElement.end - 2; end = el.openingElement.end;
+        while (start > el.openingElement.start && src[start - 1] === " ") start--; // drop the space before "/>"
+        text = ">\n" + base + "  " + snippet + "\n" + base + "</" + el.openingElement.name.name + ">";
+      }
+      var snippetAt = start + text.indexOf(snippet);
+      var out = src.slice(0, start) + text + src.slice(end);
+      var newId = null;
+      try {
+        var ast = B.parser.parse(out, { sourceType: "module", plugins: ["jsx"] });
+        var list = hostElements(ast);
+        for (var i = 0; i < list.length; i++) if (list[i].start === snippetAt) newId = path + "#" + i;
+      } catch (e) {}
+      splice(path, src, start, end, text, true, { selectId: newId });
+      return true;
+    });
+    if (!res) send({ type: "edit-error", message: "Can't add inside this element (it has no children slot). Select its parent or choose 'After'." });
   }
   function attrOf(el, name) {
     var a = el.openingElement.attributes.filter(function (x) { return x.type === "JSXAttribute" && x.name && x.name.name === name; });
@@ -402,6 +457,11 @@ const EDITOR = String.raw`
       setSrc(m.src);
     } else if (m.type === "delete" && sel) {
       deleteSel();
+    } else if (m.type === "insert") {
+      insertEl(m.kind, m.where);
+    } else if (m.type === "selectId" && mode) {
+      var found = document.querySelector('[data-lv="' + String(m.id).replace(/"/g, "") + '"]');
+      if (found) { select(found); if (found.scrollIntoView) found.scrollIntoView({ block: "nearest" }); }
     }
   });
 })();

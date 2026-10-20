@@ -48,6 +48,7 @@ export default function Preview({
   // don't trigger a reload when they flow back in through `files`.
   const built = useRef<Record<string, string> | null>(null);
   const editModeRef = useRef(false);
+  const pendingSelect = useRef<string | null>(null);
   const onSourceEditRef = useRef(onSourceEdit);
   onSourceEditRef.current = onSourceEdit;
   editModeRef.current = editMode && !editDisabled;
@@ -85,10 +86,18 @@ export default function Preview({
       // Only trust messages from our own preview iframe.
       if (e.source !== frame.current?.contentWindow) return;
       const d = e.data;
-      if (d?.type === "preview-ready") post({ type: "mode", on: editModeRef.current });
+      if (d?.type === "preview-ready") {
+        post({ type: "mode", on: editModeRef.current });
+        // After an insert, the preview reloads; re-select the element that was just added.
+        if (pendingSelect.current) {
+          post({ type: "selectId", id: pendingSelect.current });
+          pendingSelect.current = null;
+        }
+      }
       if (d?.type === "select") setSel(d.id ? (d as Selection) : null);
       if (d?.type === "edit-error") setNotice(String(d.message));
       if (d?.type === "source-update" && typeof d.path === "string" && typeof d.source === "string") {
+        if (typeof d.selectId === "string") pendingSelect.current = d.selectId;
         // `reload` edits (e.g. delete) shift element ids, so let the preview rebuild.
         if (!d.reload) built.current = { ...(built.current ?? {}), [d.path]: d.source };
         onSourceEditRef.current?.(d.path, d.source);
@@ -165,6 +174,7 @@ export default function Preview({
           onStyle={(op, value) => post({ type: "style", op, value })}
           onImage={(src) => post({ type: "setSrc", src })}
           onDelete={() => post({ type: "delete" })}
+          onInsert={(kind, where) => post({ type: "insert", kind, where })}
         />
       )}
 
