@@ -40,6 +40,7 @@ export default function Preview({
   projectId,
   onFix,
   onSourceEdit,
+  onRuntimeError,
   editDisabled,
   canUndo,
   canRedo,
@@ -52,6 +53,8 @@ export default function Preview({
   onFix?: (error: string) => void;
   /** Called when a visual edit changed a source file. */
   onSourceEdit?: (path: string, source: string) => void;
+  /** Called whenever the running preview reports an error (used for the automatic fix loop). */
+  onRuntimeError?: (error: string) => void;
   editDisabled?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
@@ -61,6 +64,8 @@ export default function Preview({
   const frame = useRef<HTMLIFrameElement>(null);
   const [device, setDevice] = useState<keyof typeof DEVICES>("desktop");
   const [nonce, setNonce] = useState(0);
+  const onRuntimeErrorRef = useRef(onRuntimeError);
+  onRuntimeErrorRef.current = onRuntimeError;
   const undoRef = useRef(onUndo);
   const redoRef = useRef(onRedo);
   undoRef.current = onUndo;
@@ -150,7 +155,10 @@ export default function Preview({
         if (!d.reload) built.current = { ...(built.current ?? {}), [d.path]: d.source };
         onSourceEditRef.current?.(d.path, d.source);
       }
-      if (e.data?.type === "preview-error") setError(String(e.data.message));
+      if (e.data?.type === "preview-error") {
+        setError(String(e.data.message));
+        onRuntimeErrorRef.current?.(String(e.data.message));
+      }
       if (e.data?.type === "storage-sync" && e.data.data && typeof e.data.data === "object") {
         const json = JSON.stringify(e.data.data);
         if (json.length > MAX_APP_DATA) return;

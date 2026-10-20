@@ -29,6 +29,10 @@ export const EXPAND_PROMPT =
   "(4) make every requested feature fully interactive and working. " +
   "Output the full contents of every file you change or add. Aim for at least 25,000 characters of code in total.";
 
+/** Sent automatically when the preview throws right after a generation. */
+export const fixPrompt = (error: string) =>
+  `The preview crashed with this runtime error. Find the root cause and fix it. Only change what is necessary and keep everything else exactly as it is:\n\n${error}`;
+
 /** A new project whose first version is smaller than this gets the automatic expand pass. */
 export const EXPAND_BELOW_CHARS = 25_000;
 

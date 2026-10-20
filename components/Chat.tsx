@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, FileCode2, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowUp, FileCode2, Loader2, RotateCcw, Sparkles, Wrench } from "lucide-react";
+import { suggestionsFor } from "@/lib/suggestions";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { AttachButton, Thumbs, useAttachments } from "./Attachments";
 import type { Message } from "@/lib/store";
@@ -110,7 +111,15 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
         {messages.map((m, i) =>
           m.auto ? (
             <div key={i} className="flex items-center gap-1.5 text-xs text-violet-300/80">
-              <Sparkles size={12} /> Expanding the site: adding missing sections and more detail...
+              {m.auto === "fix" ? (
+                <>
+                  <Wrench size={12} /> Found an error in the preview: fixing it automatically...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={12} /> Expanding the site: adding missing sections and more detail...
+                </>
+              )}
             </div>
           ) : m.role === "user" ? (
             <div key={i} className="ml-auto max-w-[85%] space-y-2 rounded-2xl bg-violet-600 px-3.5 py-2 text-sm">
@@ -150,6 +159,19 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
         {busy && streaming === "" && (
           <div className="flex items-center gap-2 text-sm text-white/50">
             <Loader2 size={14} className="animate-spin" /> Thinking...
+          </div>
+        )}
+        {!busy && streaming === null && messages.length > 1 && messages[messages.length - 1].snapshot && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {suggestionsFor(currentFiles).map((s) => (
+              <button
+                key={s.label}
+                onClick={() => onSend(s.prompt, [])}
+                className="rounded-full border border-white/15 px-2.5 py-1 text-[11px] text-white/60 transition hover:border-violet-400/60 hover:text-white"
+              >
+                + {s.label}
+              </button>
+            ))}
           </div>
         )}
         <div ref={endRef} />

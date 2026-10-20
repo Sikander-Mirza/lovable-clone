@@ -12,7 +12,7 @@ import GitHubSync from "@/components/GitHubSync";
 import DeployButton from "@/components/DeployButton";
 import { getProject, saveProject, type Message, type Project } from "@/lib/store";
 import { parseAssistant } from "@/lib/parse";
-import { EXPAND_BELOW_CHARS, EXPAND_PROMPT } from "@/lib/prompt";
+import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt } from "@/lib/prompt";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { compactFiles, restoreAll, type AssetTable } from "@/lib/assets";
 
@@ -42,6 +42,9 @@ export default function ProjectPage() {
   const projectRef = useRef<Project | null>(null);
   projectRef.current = project;
   const runRef = useRef<((p: Project) => Promise<void>) | null>(null);
+  const fixBudget = useRef(0); // automatic error-fix attempts left for this generation
+  const autoFixing = useRef(false);
+  const lastAutoFixed = useRef("");
 
   const run = useCallback(async (p: Project) => {
     setBusy(true);
@@ -91,6 +94,9 @@ export default function ProjectPage() {
     if (!sameFiles(p.files, merged)) pushHistory(p.files);
     await saveProject(next);
     setProject(next);
+    autoFixing.current = false;
+    // Each user-driven (or expand) generation gets up to 2 automatic error-fix attempts.
+    if (!failed && p.messages[p.messages.length - 1]?.auto !== "fix") fixBudget.current = 2;
 
     // The first version of a new project is often thin: run one automatic expand pass.
     const total = Object.values(merged).reduce((n, c) => n + c.length, 0);
@@ -103,11 +109,11 @@ export default function ProjectPage() {
       autoOn &&
       Object.keys(p.files).length === 0 &&
       total < EXPAND_BELOW_CHARS &&
-      !p.messages.some((m) => m.auto)
+      !p.messages.some((m) => m.auto === true || m.auto === "expand")
     ) {
       const follow: Project = {
         ...next,
-        messages: [...next.messages, { role: "user", content: EXPAND_PROMPT, auto: true }],
+        messages: [...next.messages, { role: "user", content: EXPAND_PROMPT, auto: "expand" }],
       };
       await saveProject(follow);
       setProject(follow);
@@ -209,6 +215,24 @@ export default function ProjectPage() {
     run(next);
   };
 
+  // The preview threw right after a generation: ask the AI to fix it, up to 2 times.
+  const onRuntimeError = (err: string) => {
+    const p = projectRef.current;
+    if (!p || busy || autoFixing.current || fixBudget.current <= 0) return;
+    if (Object.keys(p.files).length === 0 || err === lastAutoFixed.current) return;
+    fixBudget.current -= 1;
+    autoFixing.current = true;
+    lastAutoFixed.current = err;
+    const next: Project = {
+      ...p,
+      messages: [...p.messages, { role: "user", content: fixPrompt(err.slice(0, 1500)), auto: "fix" }],
+    };
+    projectRef.current = next;
+    saveProject(next);
+    setProject(next);
+    run(next);
+  };
+
   const commitName = () => {
     const p = projectRef.current;
     setRenaming(false);
@@ -300,6 +324,7 @@ export default function ProjectPage() {
           files={liveFiles}
           projectId={project.id}
           onSourceEdit={onSourceEdit}
+          onRuntimeError={onRuntimeError}
           editDisabled={busy}
           canUndo={past.current.length > 0 && !busy}
           canRedo={future.current.length > 0 && !busy}
