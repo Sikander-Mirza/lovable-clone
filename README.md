@@ -24,5 +24,8 @@ Open http://localhost:3000.
 
 (For quick testing, turn off "Confirm email" in Supabase -> Authentication -> Providers -> Email.)
 
+## Push to GitHub
+On a project page click **GitHub**, enter `owner/name` and a personal access token (scope `repo`, create one at github.com/settings/tokens/new). The project is wrapped in a Vite + React + Tailwind scaffold (`lib/exportProject.ts`) and committed in one commit, so the repo runs with `npm install && npm run dev`. The token is stored only in your browser and calls go straight from the browser to api.github.com.
+
 ## Roadmap
-~~Auth + cloud persistence (Supabase)~~ done. Next: GitHub sync, one-click deploy, image attachments, version history/rollback.
+~~Auth + cloud persistence (Supabase)~~ done. ~~GitHub sync~~ done. Next: one-click deploy, image attachments, version history/rollback.
