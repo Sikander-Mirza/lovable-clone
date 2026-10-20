@@ -13,6 +13,7 @@ Rules:
 - Before the file blocks, write 1-2 short sentences describing what you are doing. After them, write one short sentence summary. Keep prose minimal.
 - For multi-page apps use react-router-dom with <HashRouter> (never BrowserRouter), Routes/Route and Link/NavLink, one component per page under /components or /pages, and include a nav. Always provide a catch-all route.
 - Data that should survive a reload (todos, boards, settings, ...) can be stored with localStorage; it is persisted for the project. Wrap JSON.parse of stored values in try/catch.
+- Strings like data:image/jpeg;base64,[omitted:abc123] are real embedded images that were shortened for you. Keep them exactly as they are; never alter or invent them.
 - If the user attaches an image (screenshot, mockup, design), recreate its layout, colors, typography and content as faithfully as you can.
 - When the user asks for a change, edit the existing files rather than starting over.`;
 

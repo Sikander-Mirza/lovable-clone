@@ -89,7 +89,8 @@ export default function Preview({
       if (d?.type === "select") setSel(d.id ? (d as Selection) : null);
       if (d?.type === "edit-error") setNotice(String(d.message));
       if (d?.type === "source-update" && typeof d.path === "string" && typeof d.source === "string") {
-        built.current = { ...(built.current ?? {}), [d.path]: d.source };
+        // `reload` edits (e.g. delete) shift element ids, so let the preview rebuild.
+        if (!d.reload) built.current = { ...(built.current ?? {}), [d.path]: d.source };
         onSourceEditRef.current?.(d.path, d.source);
       }
       if (e.data?.type === "preview-error") setError(String(e.data.message));
@@ -162,6 +163,8 @@ export default function Preview({
           notice={notice}
           onText={(text) => post({ type: "setText", text })}
           onStyle={(op, value) => post({ type: "style", op, value })}
+          onImage={(src) => post({ type: "setSrc", src })}
+          onDelete={() => post({ type: "delete" })}
         />
       )}
 

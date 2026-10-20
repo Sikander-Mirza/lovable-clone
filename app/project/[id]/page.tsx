@@ -11,6 +11,7 @@ import DeployButton from "@/components/DeployButton";
 import { getProject, saveProject, type Message, type Project } from "@/lib/store";
 import { parseAssistant } from "@/lib/parse";
 import { versionNumber } from "@/lib/versions";
+import { compactFiles, restoreAll, type AssetTable } from "@/lib/assets";
 
 const VISUAL_NOTE = "Visual edits applied.";
 
@@ -21,6 +22,7 @@ export default function ProjectPage() {
   const [streaming, setStreaming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const started = useRef(false);
+  const assetTable = useRef<AssetTable>({});
   const projectRef = useRef<Project | null>(null);
   projectRef.current = project;
 
@@ -28,6 +30,9 @@ export default function ProjectPage() {
     setBusy(true);
     setStreaming("");
     let raw = "";
+    // Embedded images are replaced by short placeholders for the model, then restored.
+    const compact = compactFiles(p.files);
+    assetTable.current = compact.table;
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -39,7 +44,7 @@ export default function ProjectPage() {
             content: m.content,
             ...(i === p.messages.length - 1 && m.images ? { images: m.images } : {}),
           })),
-          files: p.files,
+          files: compact.files,
         }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
@@ -54,8 +59,7 @@ export default function ProjectPage() {
     } catch (e: any) {
       raw += `\n\n[error] ${e?.message ?? "request failed"}`;
     }
-    const { files } = parseAssistant(raw);
-    const merged = { ...p.files, ...files };
+    const merged = { ...p.files, ...restoreAll(parseAssistant(raw).files, compact.table) };
     const next: Project = {
       ...p,
       files: merged,
@@ -84,7 +88,7 @@ export default function ProjectPage() {
     if (!project) return {};
     if (streaming === null) return project.files;
     const { files, openPath } = parseAssistant(streaming);
-    const done = { ...files };
+    const done = restoreAll(files, assetTable.current);
     if (openPath) delete done[openPath]; // don't compile half-written files
     return { ...project.files, ...done };
   }, [project, streaming]);
