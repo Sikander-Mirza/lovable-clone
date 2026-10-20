@@ -74,11 +74,17 @@ export default function ProjectPage() {
     } catch (e: any) {
       raw += `\n\n[error] ${e?.message ?? "request failed"}`;
     }
-    const merged = { ...p.files, ...restoreAll(parseAssistant(raw).files, compact.table) };
+    const parsed = restoreAll(parseAssistant(raw).files, compact.table);
+    const merged = { ...p.files, ...parsed };
+    // A failed request (no files, only an error) must not become a "version".
+    const failed = Object.keys(parsed).length === 0 && raw.includes("[error]");
     const next: Project = {
       ...p,
       files: merged,
-      messages: [...p.messages, { role: "assistant", content: raw, snapshot: merged }],
+      messages: [
+        ...p.messages,
+        failed ? { role: "assistant", content: raw } : { role: "assistant", content: raw, snapshot: merged },
+      ],
     };
     if (!sameFiles(p.files, merged)) pushHistory(p.files);
     await saveProject(next);
@@ -163,6 +169,19 @@ export default function ProjectPage() {
     applyFiles(next);
   };
 
+  // Re-run the last request after a failed generation (drops the error message first).
+  const retry = () => {
+    const p = projectRef.current;
+    if (!p || busy) return;
+    const last = p.messages[p.messages.length - 1];
+    if (!(last?.role === "assistant" && !last.snapshot && last.content.includes("[error]"))) return;
+    const next = { ...p, messages: p.messages.slice(0, -1) };
+    projectRef.current = next;
+    saveProject(next);
+    setProject(next);
+    run(next);
+  };
+
   const commitName = () => {
     const p = projectRef.current;
     setRenaming(false);
@@ -245,6 +264,7 @@ export default function ProjectPage() {
             busy={busy}
             onSend={send}
             onRestore={restore}
+            onRetry={retry}
           />
         </div>
       </aside>

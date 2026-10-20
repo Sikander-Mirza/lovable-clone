@@ -14,6 +14,7 @@ type Props = {
   busy: boolean;
   onSend: (text: string, images: string[]) => void;
   onRestore: (messageIndex: number) => void;
+  onRetry: () => void;
 };
 
 function AssistantBubble({
@@ -21,18 +22,36 @@ function AssistantBubble({
   live,
   version,
   onRestore,
+  onRetry,
 }: {
   raw: string;
   live?: boolean;
+  /** Present on a failed reply that can be re-run. */
+  onRetry?: () => void;
   version?: number;
   /** present only when this version differs from the current project state */
   onRestore?: () => void;
 }) {
   const { files, openPath, text } = parseAssistant(raw);
   const paths = Object.keys(files);
+  const isError = text.includes("[error]");
   return (
     <div className="space-y-2">
-      {text && <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">{text}</p>}
+      {isError ? (
+        <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+          {text.replace(/^[\s\S]*?\[error\]\s*/, "")}
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="mt-2 flex items-center gap-1.5 rounded-md bg-red-500/25 px-2.5 py-1 text-xs font-medium text-red-100 hover:bg-red-500/40"
+            >
+              <RotateCcw size={11} /> Retry
+            </button>
+          )}
+        </div>
+      ) : (
+        text && <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">{text}</p>
+      )}
       {paths.length > 0 && (
         <div className="space-y-1">
           {paths.map((p) => (
@@ -67,7 +86,7 @@ function AssistantBubble({
   );
 }
 
-export default function Chat({ messages, currentFiles, streaming, busy, onSend, onRestore }: Props) {
+export default function Chat({ messages, currentFiles, streaming, busy, onSend, onRestore, onRetry }: Props) {
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -115,6 +134,7 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
             <AssistantBubble
               key={i}
               raw={m.content}
+              onRetry={i === messages.length - 1 && !m.snapshot && !busy ? onRetry : undefined}
               version={m.snapshot ? versionNumber(messages, i) : undefined}
               onRestore={
                 m.snapshot && !busy && !sameFiles(m.snapshot, currentFiles) ? () => onRestore(i) : undefined
