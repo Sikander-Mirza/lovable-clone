@@ -164,7 +164,6 @@ export default function Home() {
       {clarify && (
         <ClarifyDialog
           prompt={clarify}
-          hasImage={att.images.length > 0}
           onBuild={(details) => build(clarify, details)}
           onCancel={() => setClarify(null)}
         />
