@@ -1,5 +1,7 @@
 // Thin proxy to the Vercel REST API (it does not allow browser CORS).
-// The user's token is forwarded per request and never stored.
+// Uses the OAuth token from the encrypted cookie when the user connected Vercel;
+// otherwise a token passed in the request body (forwarded, never stored).
+import { getConn, type VercelConn } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -11,13 +13,15 @@ const json = (body: unknown, status = 200) =>
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const token: string | undefined = body.token;
-  if (!token) return json({ error: "Missing Vercel token" }, 400);
+  const conn = await getConn<VercelConn>("lc_vc");
+  const token: string | undefined = conn?.token ?? body.token;
+  if (!token) return json({ error: "Not connected to Vercel (no token)" }, 401);
+  const team = conn?.teamId ? `&teamId=${encodeURIComponent(conn.teamId)}` : "";
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
   if (body.action === "status") {
-    const res = await fetch(`${VERCEL}/v13/deployments/${encodeURIComponent(body.id)}`, { headers });
+    const res = await fetch(`${VERCEL}/v13/deployments/${encodeURIComponent(body.id)}?x=1${team}`, { headers });
     const data = await res.json();
     if (!res.ok) return json({ error: data?.error?.message ?? "Status check failed" }, res.status);
     return json({
@@ -30,7 +34,7 @@ export async function POST(req: Request) {
   // action: "create"
   const files: Record<string, string> = body.files ?? {};
   const name = String(body.name || "app").toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 60);
-  const res = await fetch(`${VERCEL}/v13/deployments?skipAutoDetectionConfirmation=1`, {
+  const res = await fetch(`${VERCEL}/v13/deployments?skipAutoDetectionConfirmation=1${team}`, {
     method: "POST",
     headers,
     body: JSON.stringify({

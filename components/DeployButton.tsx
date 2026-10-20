@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Rocket, Loader2, ExternalLink } from "lucide-react";
 import { toRepoFiles } from "@/lib/exportProject";
+import { useConnections } from "@/lib/useConnections";
 
 const TOKEN_KEY = "lovable-clone:vercel-token";
 const urlKey = (id: string) => `lovable-clone:deploy-url:${id}`;
@@ -47,10 +48,21 @@ export default function DeployButton({
   const [liveUrl, setLiveUrl] = useState("");
   const [error, setError] = useState("");
   const cancelled = useRef(false);
+  const [useToken, setUseToken] = useState(false);
+  const { conn, disconnect, connectUrl } = useConnections(open);
+  const oauth = !!conn?.vercel.connected && !useToken;
+  const canConnect = !!conn?.vercel.configured && !conn.vercel.connected && !useToken;
+  const needsToken = !oauth && !canConnect;
 
   useEffect(() => {
     setToken(read(TOKEN_KEY));
     setLiveUrl(read(urlKey(projectId)));
+    // Returning from the OAuth redirect: reopen the dialog (and show any error).
+    const err = new URLSearchParams(window.location.search).get("connect_error");
+    if (err) {
+      setError(err);
+      setOpen(true);
+    }
     cancelled.current = false;
     return () => {
       cancelled.current = true;
@@ -64,8 +76,9 @@ export default function DeployButton({
     setError("");
     setStatus("Uploading...");
     try {
-      write(TOKEN_KEY, token.trim());
-      const t = token.trim();
+      // With OAuth connected, the server uses the encrypted cookie; send no token.
+      const t = oauth ? undefined : token.trim();
+      if (t) write(TOKEN_KEY, t);
       // Stable name per project so redeploys update the same Vercel project.
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30) || "app";
       const created = await call({
@@ -121,27 +134,53 @@ export default function DeployButton({
               <Rocket size={18} /> Deploy to Vercel
             </h2>
 
-            <label className="block text-xs text-white/50">
-              Vercel token{" "}
+            {canConnect && (
               <a
-                href="https://vercel.com/account/tokens"
-                target="_blank"
-                rel="noreferrer"
-                className="text-violet-400 hover:underline"
+                href={connectUrl("vercel")}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-white py-2 text-sm font-medium text-black hover:bg-white/90"
               >
-                (create one)
+                <Rocket size={15} /> Connect Vercel
               </a>
-              <input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Paste token"
-                className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none"
-              />
-              <span className="mt-1 block text-white/30">
-                Kept in this browser; sent to Vercel through this app&apos;s server only when you deploy.
-              </span>
-            </label>
+            )}
+
+            {oauth && (
+              <div className="flex items-center justify-between rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+                <span>Connected to Vercel</span>
+                <button onClick={() => disconnect("vercel")} className="text-white/50 hover:text-white">
+                  Disconnect
+                </button>
+              </div>
+            )}
+
+            {needsToken && (
+              <label className="block text-xs text-white/50">
+                Vercel token{" "}
+                <a
+                  href="https://vercel.com/account/tokens"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-violet-400 hover:underline"
+                >
+                  (create one)
+                </a>
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="Paste token"
+                  className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none"
+                />
+                <span className="mt-1 block text-white/30">
+                  Kept in this browser; sent to Vercel through this app&apos;s server only when you deploy.
+                </span>
+              </label>
+            )}
+
+            {conn?.vercel.configured && !oauth && (
+              <button onClick={() => setUseToken((v) => !v)} className="text-xs text-white/40 hover:text-white">
+                {useToken ? "Use Connect Vercel instead" : "Use a token instead"}
+              </button>
+            )}
 
             {liveUrl && (
               <a
@@ -158,7 +197,7 @@ export default function DeployButton({
 
             <button
               onClick={deploy}
-              disabled={phase === "working" || !token.trim()}
+              disabled={phase === "working" || canConnect || (needsToken && !token.trim())}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-2 text-sm font-medium disabled:opacity-50"
             >
               {phase === "working" && <Loader2 size={14} className="animate-spin" />}

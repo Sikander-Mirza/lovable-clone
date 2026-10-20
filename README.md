@@ -27,6 +27,15 @@ Open http://localhost:3000.
 ## Push to GitHub
 On a project page click **GitHub**, enter `owner/name` and a personal access token (scope `repo`, create one at github.com/settings/tokens/new). The project is wrapped in a Vite + React + Tailwind scaffold (`lib/exportProject.ts`) and committed in one commit, so the repo runs with `npm install && npm run dev`. The token is stored only in your browser and calls go straight from the browser to api.github.com.
 
+## Connect GitHub and Vercel (OAuth)
+Instead of pasting tokens, the GitHub and Deploy dialogs show **Connect GitHub / Connect Vercel** buttons once you register OAuth apps. The provider token is stored in an encrypted httpOnly cookie (`lib/session.ts`, AES-256-GCM) and never reaches browser JavaScript. If the env vars are missing, the dialogs fall back to the token fields.
+
+**GitHub:** github.com/settings/developers -> New OAuth App. Homepage `http://localhost:3000`, callback URL `http://localhost:3000/api/auth/github/callback`. Put the Client ID and a generated secret into `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`. (Scope requested: `repo`.)
+
+**Vercel:** vercel.com/dashboard -> Integrations -> Create (Integration Console). Set the Redirect URL to `http://localhost:3000/api/auth/vercel/callback`, enable the Deployments (read/write) and Projects (read/write) scopes, then put the Client ID/secret into `VERCEL_CLIENT_ID` / `VERCEL_CLIENT_SECRET` and the integration's URL slug into `VERCEL_INTEGRATION_SLUG`.
+
+Also set `SESSION_SECRET` to a long random string, and `APP_URL` to your public URL when you deploy (then update both callback URLs).
+
 ## Deploy to Vercel
 Click **Deploy** on a project page, paste a Vercel token (vercel.com/account/tokens), and the exported Vite app is built and published to a live `*.vercel.app` URL. Redeploying updates the same Vercel project. `app/api/deploy` proxies the Vercel API (it has no browser CORS) and does not store the token.
 
