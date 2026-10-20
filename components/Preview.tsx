@@ -1,25 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import {
-  SandpackProvider,
-  SandpackPreview,
-  SandpackCodeEditor,
-  SandpackFileExplorer,
-} from "@codesandbox/sandpack-react";
+import { useEffect, useState } from "react";
 import { Eye, Code2 } from "lucide-react";
-
-const DEPENDENCIES = {
-  "lucide-react": "^0.468.0",
-  "react-router-dom": "^6.28.0",
-  "framer-motion": "^11.15.0",
-  recharts: "^2.15.0",
-  "date-fns": "^4.1.0",
-};
+import { buildPreviewDoc } from "@/lib/previewDoc";
 
 export default function Preview({ files }: { files: Record<string, string> }) {
   const [tab, setTab] = useState<"preview" | "code">("preview");
-  const hasFiles = Object.keys(files).length > 0;
+  const [doc, setDoc] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const paths = Object.keys(files);
+  const current = selected && selected in files ? selected : paths[0];
+
+  // Rebuild the preview document shortly after files stop changing.
+  useEffect(() => {
+    if (!paths.length) return;
+    const t = setTimeout(() => {
+      setError(null);
+      setDoc(buildPreviewDoc(files));
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
+
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type === "preview-error") setError(String(e.data.message));
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
 
   return (
     <div className="flex h-full flex-col">
@@ -40,38 +50,46 @@ export default function Preview({ files }: { files: Record<string, string> }) {
             <Icon size={14} /> {label}
           </button>
         ))}
+        {error && tab === "preview" && (
+          <span className="ml-auto truncate text-xs text-red-400">Runtime error in preview</span>
+        )}
       </div>
 
-      <div className="min-h-0 flex-1">
-        {!hasFiles ? (
+      <div className="relative min-h-0 flex-1">
+        {!paths.length ? (
           <div className="flex h-full items-center justify-center text-white/40">
             Your app will appear here.
           </div>
         ) : (
-          <SandpackProvider
-            template="react"
-            theme="dark"
-            files={files}
-            customSetup={{ dependencies: DEPENDENCIES }}
-            options={{
-              externalResources: ["https://cdn.tailwindcss.com"],
-              recompileMode: "delayed",
-              recompileDelay: 600,
-            }}
-            style={{ height: "100%" }}
-          >
-            <div className="h-full" style={{ display: tab === "preview" ? "block" : "none" }}>
-              <SandpackPreview
-                showNavigator={false}
-                showOpenInCodeSandbox={false}
-                style={{ height: "100%" }}
-              />
-            </div>
-            <div className="h-full" style={{ display: tab === "code" ? "flex" : "none" }}>
-              <SandpackFileExplorer style={{ height: "100%", width: 200 }} />
-              <SandpackCodeEditor style={{ height: "100%", flex: 1 }} showTabs={false} />
-            </div>
-          </SandpackProvider>
+          <>
+            <iframe
+              title="Preview"
+              srcDoc={doc}
+              sandbox="allow-scripts allow-forms allow-modals allow-popups"
+              className="h-full w-full border-0 bg-white"
+              style={{ display: tab === "preview" ? "block" : "none" }}
+            />
+            {tab === "code" && (
+              <div className="flex h-full">
+                <div className="w-56 shrink-0 overflow-y-auto border-r border-white/10 p-2 text-sm">
+                  {paths.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setSelected(p)}
+                      className={`block w-full truncate rounded px-2 py-1 text-left ${
+                        p === current ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                <pre className="min-w-0 flex-1 overflow-auto p-4 text-xs leading-relaxed text-white/80">
+                  {current ? files[current] : ""}
+                </pre>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

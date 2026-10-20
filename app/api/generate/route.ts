@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   };
 
   const client = new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL });
-  const model = process.env.LLM_MODEL || "gemini-3.8-flash";
+  const model = process.env.LLM_MODEL || "gemini-3-flash-preview";
 
   // Attach the current project files to the latest user turn.
   const msgs = messages.map((m, i) =>
