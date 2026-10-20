@@ -10,7 +10,7 @@ import GitHubSync from "@/components/GitHubSync";
 import DeployButton from "@/components/DeployButton";
 import { getProject, saveProject, type Message, type Project } from "@/lib/store";
 import { parseAssistant } from "@/lib/parse";
-import { versionNumber } from "@/lib/versions";
+import { sameFiles, versionNumber } from "@/lib/versions";
 import { compactFiles, restoreAll, type AssetTable } from "@/lib/assets";
 
 const VISUAL_NOTE = "Visual edits applied.";
@@ -23,6 +23,17 @@ export default function ProjectPage() {
   const [busy, setBusy] = useState(false);
   const started = useRef(false);
   const assetTable = useRef<AssetTable>({});
+  // In-memory undo/redo stacks of whole-project file states (lost on reload; the
+  // permanent history is the version list in the chat).
+  const past = useRef<Record<string, string>[]>([]);
+  const future = useRef<Record<string, string>[]>([]);
+  const [, setHist] = useState(0);
+  const pushHistory = (files: Record<string, string>) => {
+    past.current.push(files);
+    if (past.current.length > 100) past.current.shift();
+    future.current = [];
+    setHist((n) => n + 1);
+  };
   const projectRef = useRef<Project | null>(null);
   projectRef.current = project;
 
@@ -65,6 +76,7 @@ export default function ProjectPage() {
       files: merged,
       messages: [...p.messages, { role: "assistant", content: raw, snapshot: merged }],
     };
+    if (!sameFiles(p.files, merged)) pushHistory(p.files);
     await saveProject(next);
     setProject(next);
     setStreaming(null);
@@ -108,10 +120,9 @@ export default function ProjectPage() {
 
   // A change made in the visual editor: update the file, and fold consecutive
   // visual edits into one "Visual edits" version instead of spamming history.
-  const onSourceEdit = (path: string, source: string) => {
+  const applyFiles = (files: Record<string, string>) => {
     const p = projectRef.current;
     if (!p) return;
-    const files = { ...p.files, [path]: source };
     const last = p.messages[p.messages.length - 1];
     const messages: Message[] =
       last?.role === "assistant" && last.content === VISUAL_NOTE
@@ -123,9 +134,35 @@ export default function ProjectPage() {
     setProject(next);
   };
 
+  const onSourceEdit = (path: string, source: string) => {
+    const p = projectRef.current;
+    if (!p) return;
+    pushHistory(p.files);
+    applyFiles({ ...p.files, [path]: source });
+  };
+
+  const undo = () => {
+    const prev = past.current.pop();
+    const p = projectRef.current;
+    if (!prev || !p || busy) return void (prev && past.current.push(prev));
+    future.current.push(p.files);
+    setHist((n) => n + 1);
+    applyFiles(prev);
+  };
+
+  const redo = () => {
+    const next = future.current.pop();
+    const p = projectRef.current;
+    if (!next || !p || busy) return void (next && future.current.push(next));
+    past.current.push(p.files);
+    setHist((n) => n + 1);
+    applyFiles(next);
+  };
+
   const restore = (index: number) => {
     const snap = project.messages[index]?.snapshot;
     if (!snap || busy) return;
+    pushHistory(project.files);
     const next: Project = {
       ...project,
       files: snap,
@@ -166,6 +203,10 @@ export default function ProjectPage() {
           projectId={project.id}
           onSourceEdit={onSourceEdit}
           editDisabled={busy}
+          canUndo={past.current.length > 0 && !busy}
+          canRedo={future.current.length > 0 && !busy}
+          onUndo={undo}
+          onRedo={redo}
           onFix={
             busy
               ? undefined

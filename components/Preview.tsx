@@ -1,10 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Eye, Code2, Pencil, Wrench } from "lucide-react";
+import {
+  Code2,
+  Eye,
+  Monitor,
+  Pencil,
+  Redo2,
+  RefreshCw,
+  Smartphone,
+  Tablet,
+  Undo2,
+  Wrench,
+} from "lucide-react";
 import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
+
+const DEVICES = {
+  desktop: { label: "Desktop", width: "100%", Icon: Monitor },
+  tablet: { label: "Tablet (768px)", width: "768px", Icon: Tablet },
+  mobile: { label: "Mobile (390px)", width: "390px", Icon: Smartphone },
+} as const;
 
 const MAX_APP_DATA = 1_000_000; // chars of persisted app data per project
 
@@ -24,6 +41,10 @@ export default function Preview({
   onFix,
   onSourceEdit,
   editDisabled,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: {
   files: Record<string, string>;
   projectId: string;
@@ -32,8 +53,18 @@ export default function Preview({
   /** Called when a visual edit changed a source file. */
   onSourceEdit?: (path: string, source: string) => void;
   editDisabled?: boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
+  const [device, setDevice] = useState<keyof typeof DEVICES>("desktop");
+  const [nonce, setNonce] = useState(0);
+  const undoRef = useRef(onUndo);
+  const redoRef = useRef(onRedo);
+  undoRef.current = onUndo;
+  redoRef.current = onRedo;
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [doc, setDoc] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +106,22 @@ export default function Preview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editMode, editDisabled]);
 
+  // Ctrl/Cmd+Z and Ctrl+Shift+Z / Ctrl+Y when focus is on the page (not in a text field).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" || k === "y") {
+        e.preventDefault();
+        (k === "y" || e.shiftKey ? redoRef : undoRef).current?.();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   useEffect(() => {
     if (!notice) return;
     const t = setTimeout(() => setNotice(null), 5000);
@@ -96,6 +143,7 @@ export default function Preview({
       }
       if (d?.type === "select") setSel(d.id ? (d as Selection) : null);
       if (d?.type === "edit-error") setNotice(String(d.message));
+      if (d?.type === "shortcut") (d.name === "redo" ? redoRef : undoRef).current?.();
       if (d?.type === "source-update" && typeof d.path === "string" && typeof d.source === "string") {
         if (typeof d.selectId === "string") pendingSelect.current = d.selectId;
         // `reload` edits (e.g. delete) shift element ids, so let the preview rebuild.
@@ -148,8 +196,53 @@ export default function Preview({
             <Pencil size={13} /> Edit
           </button>
         )}
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+            className="rounded-md p-1.5 text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-30"
+          >
+            <Undo2 size={15} />
+          </button>
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            className="rounded-md p-1.5 text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-30"
+          >
+            <Redo2 size={15} />
+          </button>
+          {tab === "preview" && (
+            <>
+              <span className="mx-1 h-4 w-px bg-white/15" />
+              {(Object.keys(DEVICES) as (keyof typeof DEVICES)[]).map((k) => {
+                const { Icon, label } = DEVICES[k];
+                return (
+                  <button
+                    key={k}
+                    onClick={() => setDevice(k)}
+                    title={label}
+                    className={`rounded-md p-1.5 ${
+                      device === k ? "bg-white/10 text-white" : "text-white/50 hover:text-white"
+                    }`}
+                  >
+                    <Icon size={15} />
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setNonce((n) => n + 1)}
+                title="Reload preview"
+                className="rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white"
+              >
+                <RefreshCw size={14} />
+              </button>
+            </>
+          )}
+        </div>
         {error && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-3 flex items-center gap-2">
             <span className="text-xs text-red-400">Error in preview</span>
             {onFix && (
               <button
@@ -174,6 +267,7 @@ export default function Preview({
           onStyle={(op, value) => post({ type: "style", op, value })}
           onImage={(src) => post({ type: "setSrc", src })}
           onDelete={() => post({ type: "delete" })}
+          onDuplicate={() => post({ type: "duplicate" })}
           onInsert={(kind, where) => post({ type: "insert", kind, where })}
         />
       )}
@@ -185,14 +279,19 @@ export default function Preview({
           </div>
         ) : (
           <>
-            <iframe
-              ref={frame}
-              title="Preview"
-              srcDoc={doc}
-              sandbox="allow-scripts allow-forms allow-modals allow-popups"
-              className="h-full w-full border-0 bg-white"
-              style={{ display: tab === "preview" ? "block" : "none" }}
-            />
+            <div
+              className="flex h-full justify-center overflow-auto bg-neutral-900"
+              style={{ display: tab === "preview" ? "flex" : "none" }}
+            >
+              <iframe
+                ref={frame}
+                title="Preview"
+                srcDoc={nonce ? `${doc}<!--${nonce}-->` : doc}
+                sandbox="allow-scripts allow-forms allow-modals allow-popups"
+                className="h-full border-0 bg-white"
+                style={{ width: DEVICES[device].width, maxWidth: "100%" }}
+              />
+            </div>
             {tab === "code" && (
               <div className="flex h-full">
                 <div className="w-56 shrink-0 overflow-y-auto border-r border-white/10 p-2 text-sm">

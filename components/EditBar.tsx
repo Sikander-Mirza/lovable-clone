@@ -6,6 +6,7 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
+  Copy,
   Heading,
   ImageIcon,
   Link2,
@@ -119,10 +120,11 @@ type Props = {
   onStyle: (op: string, value: string) => void;
   onImage: (src: string) => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   onInsert: (kind: string, where: "after" | "inside") => void;
 };
 
-export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelete, onInsert }: Props) {
+export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelete, onDuplicate, onInsert }: Props) {
   const [text, setText] = useState("");
   const [imgUrl, setImgUrl] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -332,13 +334,22 @@ export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelet
       )}
 
       {sel.canDelete && (
-        <button
-          onClick={onDelete}
-          title="Delete this element"
-          className="ml-auto flex items-center gap-1 rounded-md border border-red-400/40 bg-red-500/10 px-2 py-1 text-xs text-red-300 hover:bg-red-500/20"
-        >
-          <Trash2 size={12} /> Delete
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={onDuplicate}
+            title="Duplicate (Ctrl+D)"
+            className="flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs hover:bg-white/10"
+          >
+            <Copy size={12} /> Duplicate
+          </button>
+          <button
+            onClick={onDelete}
+            title="Delete (Del)"
+            className="flex items-center gap-1 rounded-md border border-red-400/40 bg-red-500/10 px-2 py-1 text-xs text-red-300 hover:bg-red-500/20"
+          >
+            <Trash2 size={12} /> Delete
+          </button>
+        </div>
       )}
 
       {notice && <span className="text-xs text-amber-300">{notice}</span>}
