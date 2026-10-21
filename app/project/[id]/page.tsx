@@ -12,7 +12,8 @@ import GitHubSync from "@/components/GitHubSync";
 import DeployButton from "@/components/DeployButton";
 import { getProject, saveProject, type Message, type Project } from "@/lib/store";
 import { parseAssistant } from "@/lib/parse";
-import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt } from "@/lib/prompt";
+import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt, staticFixPrompt } from "@/lib/prompt";
+import type { Issue } from "@/lib/validate";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { THEME_PATH, serializeTheme, type Theme } from "@/lib/theme";
 import { getSupabase } from "@/lib/supabase";
@@ -130,6 +131,33 @@ export default function ProjectPage() {
     // Each user-driven (or expand) generation gets up to 2 automatic error-fix attempts.
     if (!failed && p.messages[p.messages.length - 1]?.auto !== "fix") fixBudget.current = 2;
 
+    // Static checks on the server (compile, imports, real lucide icons...): fix problems
+    // automatically, before the preview ever crashes on them.
+    if (!failed && fixBudget.current > 0) {
+      const issues: Issue[] = await fetch("/api/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: merged }),
+      })
+        .then((r) => r.json())
+        .then((d) => d.issues ?? [])
+        .catch(() => []);
+      const errors = issues.filter((i) => i.severity === "error");
+      if (errors.length) {
+        fixBudget.current -= 1;
+        autoFixing.current = true;
+        const list = errors.map((i) => `- ${i.file}: ${i.message}`).join("\n");
+        const follow: Project = {
+          ...next,
+          messages: [...next.messages, { role: "user", content: staticFixPrompt(list.slice(0, 2500)), auto: "fix" }],
+        };
+        await saveProject(follow);
+        setProject(follow);
+        setStreaming("");
+        return runRef.current?.(follow);
+      }
+    }
+
     // The first version of a new project is often thin: run one automatic expand pass.
     const total = Object.values(merged).reduce((n, c) => n + c.length, 0);
     let autoOn = true;
@@ -139,7 +167,8 @@ export default function ProjectPage() {
     if (
       !failed &&
       autoOn &&
-      Object.keys(p.files).length === 0 &&
+      // only the first request of a project (a static-check fix pass may have run in between)
+      p.messages.filter((m) => m.role === "user" && !m.auto).length === 1 &&
       total < EXPAND_BELOW_CHARS &&
       !p.messages.some((m) => m.auto === true || m.auto === "expand")
     ) {

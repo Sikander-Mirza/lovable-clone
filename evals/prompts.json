@@ -1,0 +1,42 @@
+[
+  {
+    "id": "coffee",
+    "prompt": "make me a website",
+    "details": "Details from the user:\n- What kind of website do you want? Restaurant / cafe\n- What is the name of your business or brand? Noor Coffee House\n- Which look and feel do you prefer? Warm and friendly\n- Main color? Green\n- Which pages or sections should it have? Home; About us; Services / products; Testimonials; Contact\n- Language of the website text? English"
+  },
+  {
+    "id": "saas",
+    "prompt": "A landing page for an AI note-taking app called Noted",
+    "details": ""
+  },
+  {
+    "id": "portfolio",
+    "prompt": "A personal portfolio for a product designer with Home, Projects and Contact pages",
+    "details": ""
+  },
+  {
+    "id": "roman-urdu",
+    "prompt": "mujhe ek restaurant ki website banani hai",
+    "details": "Details from the user:\n- What is the name of your business or brand? Lahori Dastarkhwan\n- Language of the website text? Roman Urdu\n- Which pages or sections should it have? Home; About us; Services / products; Contact\n- Any features you need? Online booking"
+  },
+  {
+    "id": "dashboard",
+    "prompt": "An analytics dashboard for an online store with KPIs, a revenue chart and an orders table",
+    "details": ""
+  },
+  {
+    "id": "clinic",
+    "prompt": "A website for a dental clinic with an appointment booking form",
+    "details": "Details from the user:\n- Which look and feel do you prefer? Corporate and professional\n- Main color? Blue\n- Any features you need? Online booking; Contact form"
+  },
+  {
+    "id": "store",
+    "prompt": "An online store for a minimalist sneaker brand with a cart",
+    "details": ""
+  },
+  {
+    "id": "kanban",
+    "prompt": "A kanban board with three columns where I can add, edit and move cards",
+    "details": ""
+  }
+]
