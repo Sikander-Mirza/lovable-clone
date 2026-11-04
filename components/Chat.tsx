@@ -126,7 +126,7 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+      <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden break-words p-4">
         {messages.map((m, i) =>
           m.auto ? (
             <div key={i} className="flex items-center gap-1.5 text-xs text-violet-300/80">
@@ -141,7 +141,7 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
               )}
             </div>
           ) : m.role === "user" ? (
-            <div key={i} className="ml-auto max-w-[85%] space-y-2 rounded-2xl bg-violet-600 px-3.5 py-2 text-sm">
+            <div key={i} className="ml-auto max-w-[88%] space-y-2 rounded-2xl rounded-br-md bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3.5 py-2.5 text-sm shadow-md shadow-violet-950/30">
               {m.images && (
                 <div className="flex flex-wrap gap-1.5">
                   {m.images.map((src, j) => (
@@ -196,8 +196,8 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
         <div ref={endRef} />
       </div>
 
-      <div className="border-t border-white/10 p-3" {...att.handlers}>
-        <div className="rounded-xl border border-white/15 bg-white/5 p-2">
+      <div className="border-t border-white/[.08] p-3" {...att.handlers}>
+        <div className="rounded-2xl border border-white/10 bg-white/[.04] p-2 transition focus-within:border-violet-400/50 focus-within:bg-white/[.06]">
         <Thumbs images={att.images} onRemove={att.remove} />
         <div className="flex items-end gap-1">
           <AttachButton onFiles={att.add} />
@@ -217,7 +217,7 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
           <button
             onClick={submit}
             disabled={busy || (!input.trim() && !att.images.length)}
-            className="rounded-lg bg-violet-600 p-2 text-white disabled:opacity-40"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-950/40 transition hover:brightness-110 disabled:opacity-30 disabled:shadow-none"
           >
             <ArrowUp size={16} />
           </button>

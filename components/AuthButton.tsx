@@ -78,11 +78,11 @@ export default function AuthButton({ onChange }: { onChange: () => void }) {
       </button>
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          className="modal-backdrop"
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-sm space-y-3 rounded-2xl border border-white/15 bg-[#14141c] p-6"
+            className="w-full max-w-sm space-y-3 modal p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-semibold">{mode === "in" ? "Sign in" : "Create account"}</h2>

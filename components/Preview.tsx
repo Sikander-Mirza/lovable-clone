@@ -192,83 +192,61 @@ export default function Preview({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b border-white/10 px-3 py-2">
-        {(
-          [
-            ["preview", Eye, "Preview"],
-            ["code", Code2, "Code"],
-            ["data", Inbox, "Data"],
-          ] as const
-        ).map(([id, Icon, label]) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${
-              tab === id ? "bg-white/10 text-white" : "text-white/50 hover:text-white"
-            }`}
-          >
-            <Icon size={14} /> {label}
-          </button>
-        ))}
+      <div className="flex items-center gap-2 border-b border-white/[.08] bg-[#0a0a10] px-3 py-2">
+        <div className="seg">
+          {(
+            [
+              ["preview", Eye, "Preview"],
+              ["code", Code2, "Code"],
+              ["data", Inbox, "Data"],
+            ] as const
+          ).map(([id, Icon, label]) => (
+            <button key={id} onClick={() => setTab(id)} data-active={tab === id} className="seg-btn">
+              <Icon size={14} /> {label}
+            </button>
+          ))}
+        </div>
         {tab === "preview" && paths.length > 0 && (
           <button
             onClick={() => setEditMode((v) => !v)}
             disabled={editDisabled}
             title={editDisabled ? "Wait for the AI to finish" : "Edit the page visually"}
-            className={`ml-2 flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm disabled:opacity-40 ${
+            className={`ml-1 ${
               editMode && !editDisabled
-                ? "border-violet-400 bg-violet-600 text-white"
-                : "border-white/15 text-white/60 hover:text-white"
+                ? "btn border border-violet-400/60 bg-violet-500/25 text-violet-100 h-8"
+                : "btn-ghost h-8"
             }`}
           >
             <Pencil size={13} /> Edit
           </button>
         )}
         {tab === "preview" && paths.length > 0 && onThemeChange && (
-          <div className="ml-2">
+          <div className="ml-1">
             <ThemePanel files={files} onChange={onThemeChange} />
           </div>
         )}
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo (Ctrl+Z)"
-            className="rounded-md p-1.5 text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-30"
-          >
-            <Undo2 size={15} />
-          </button>
-          <button
-            onClick={onRedo}
-            disabled={!canRedo}
-            title="Redo (Ctrl+Shift+Z)"
-            className="rounded-md p-1.5 text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-30"
-          >
-            <Redo2 size={15} />
-          </button>
+        <div className="ml-auto flex items-center gap-1.5">
+          <div className="flex items-center">
+            <button onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" className="icon-btn">
+              <Undo2 size={15} />
+            </button>
+            <button onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" className="icon-btn">
+              <Redo2 size={15} />
+            </button>
+          </div>
           {tab === "preview" && (
             <>
-              <span className="mx-1 h-4 w-px bg-white/15" />
-              {(Object.keys(DEVICES) as (keyof typeof DEVICES)[]).map((k) => {
-                const { Icon, label } = DEVICES[k];
-                return (
-                  <button
-                    key={k}
-                    onClick={() => setDevice(k)}
-                    title={label}
-                    className={`rounded-md p-1.5 ${
-                      device === k ? "bg-white/10 text-white" : "text-white/50 hover:text-white"
-                    }`}
-                  >
-                    <Icon size={15} />
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setNonce((n) => n + 1)}
-                title="Reload preview"
-                className="rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white"
-              >
+              <div className="seg">
+                {(Object.keys(DEVICES) as (keyof typeof DEVICES)[]).map((k) => {
+                  const { Icon, label } = DEVICES[k];
+                  return (
+                    <button key={k} onClick={() => setDevice(k)} title={label} data-active={device === k} className="seg-btn px-2">
+                      <Icon size={15} />
+                    </button>
+                  );
+                })}
+              </div>
+              <button onClick={() => setNonce((n) => n + 1)} title="Reload preview" className="icon-btn">
                 <RefreshCw size={14} />
               </button>
             </>

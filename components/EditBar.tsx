@@ -80,7 +80,7 @@ function AddMenu({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-1 w-44 rounded-lg border border-white/15 bg-[#14141c] p-1.5 shadow-xl">
+          <div className="absolute left-0 top-full z-50 mt-1 w-44 popover p-1.5 shadow-xl">
             <div className="mb-1 flex gap-1 rounded-md bg-white/5 p-0.5 text-[11px]">
               {(["after", "inside"] as const).map((w) => (
                 <button
@@ -129,7 +129,7 @@ function PhotoPicker({ onPick }: { onPick: (src: string) => void }) {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-1 w-80 rounded-xl border border-white/15 bg-[#14141c] p-3 shadow-2xl">
+          <div className="absolute left-0 top-full z-50 mt-1 w-80 popover p-3 shadow-2xl">
             <div className="mb-2 flex flex-wrap gap-1">
               {Object.keys(PHOTOS).map((c) => (
                 <button

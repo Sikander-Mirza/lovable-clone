@@ -49,7 +49,7 @@ export default function ThemePanel({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-2 w-72 space-y-4 rounded-xl border border-white/15 bg-[#14141c] p-4 shadow-2xl">
+          <div className="absolute left-0 top-full z-50 mt-2 w-72 space-y-4 popover p-4 shadow-2xl">
             <div>
               <div className="mb-2 text-[11px] uppercase tracking-wide text-white/40">Brand color</div>
               <div className="flex flex-wrap items-center gap-1.5">

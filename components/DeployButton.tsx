@@ -117,18 +117,18 @@ export default function DeployButton({
         onClick={() => setOpen(true)}
         disabled={!hasFiles}
         title="Deploy to Vercel"
-        className="flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1 text-xs font-medium text-black hover:bg-white/90 disabled:opacity-40"
+        className="btn-primary h-8 px-3"
       >
         <Rocket size={13} /> Deploy
       </button>
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          className="modal-backdrop"
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-md space-y-3 rounded-2xl border border-white/15 bg-[#14141c] p-6"
+            className="w-full max-w-md space-y-3 modal p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="flex items-center gap-2 text-lg font-semibold">

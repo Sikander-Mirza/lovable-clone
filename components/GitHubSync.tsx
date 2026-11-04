@@ -107,18 +107,18 @@ export default function GitHubSync({
         onClick={() => setOpen(true)}
         disabled={!hasFiles}
         title="Push to GitHub"
-        className="flex items-center gap-1.5 rounded-md border border-white/15 px-2.5 py-1 text-xs text-white/70 hover:bg-white/10 disabled:opacity-40"
+        className="btn-ghost h-8 px-2.5"
       >
         <Github size={13} /> GitHub
       </button>
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          className="modal-backdrop"
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-md space-y-3 rounded-2xl border border-white/15 bg-[#14141c] p-6"
+            className="w-full max-w-md space-y-3 modal p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="flex items-center gap-2 text-lg font-semibold">

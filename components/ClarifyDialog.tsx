@@ -49,9 +49,9 @@ export default function ClarifyDialog({
   const answered = Object.values(answers).filter((a) => a.picks.length || a.custom.trim()).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onCancel}>
+    <div className="modal-backdrop" onClick={onCancel}>
       <div
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-white/15 bg-[#14141c]"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col modal"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-4">
