@@ -86,6 +86,12 @@ Generated forms save with `import { submitForm } from "lovable"`. In the preview
 ## Hosting it for other people
 `lib/guard.ts` protects `/api/generate`: a per-IP rate limit (`RATE_LIMIT_PER_HOUR`, default 120, in memory per server instance), a request size cap, and `REQUIRE_AUTH=true` to demand a signed-in Supabase user. Also set `SESSION_SECRET` and `APP_URL`. Keep your `.env.local` out of git (it is ignored).
 
+## Static checks, patch edits and evals
+- **Static checks** (`lib/validate.ts`, `/api/validate`): after each generation the server compiles every file with esbuild and checks imports (missing files, packages that are not available) and that every `lucide-react` icon really exists. Problems are sent back to the AI automatically, before the preview can crash on them (shares the 2-attempt auto-fix budget).
+- **Patch edits** (`lib/edits.ts`): for small changes the AI sends `<edit>` blocks with SEARCH/REPLACE instead of rewriting whole files. SEARCH must match exactly once; if an edit cannot be applied the file is left untouched and the AI is asked to resend it in full (or you get a Retry notice). The chat shows "N changes" per edited file.
+- **Evals** (`npm run eval`, `evals/prompts.json`): runs fixed prompts through the real pipeline and scores compile errors, size, structure, theme use and approved photos (plus informational design-direction and generic-pattern counts). Results are saved in `evals/results/` (ignored by git). Use `-- --only coffee,saas` or `-- --limit 3`. It uses AI quota, and the score is a rough heuristic, not a verdict on design quality.
+- **Design direction:** the core system prompt makes the AI choose a specific visual direction for each business and avoid generic patterns (see `DESIGN DIRECTION` in `lib/prompt.ts`; a test keeps it in place).
+
 ## Tests
 `npm test` runs 18 tests (parser, asset placeholders, ZIP structure and CRCs, theme, questionnaire, suggestions, rate limit/auth guard, export, encrypted sessions). The visual-editor engine runs inside the preview iframe and is covered by manual/browser checks rather than these tests. To run a production build while `next dev` is running: `NEXT_DIST_DIR=.next-build npm run build`.
 

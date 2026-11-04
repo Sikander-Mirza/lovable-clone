@@ -16,3 +16,16 @@ test("small data URLs are left alone", () => {
   const files = { "/a.js": 'src="data:image/svg+xml,%3Csvg%3E"' };
   assert.deepEqual(compactFiles(files).files, files);
 });
+
+test("image placeholders inside edit blocks are restored so SEARCH matches the real file", async () => {
+  const { restoreEdits } = await import("../lib/assets");
+  const { applyEdits } = await import("../lib/edits");
+  const big = "data:image/jpeg;base64," + "A1b2".repeat(5000);
+  const files = { "/App.js": `<img src="${big}" alt="a"/>` };
+  const { files: compact, table } = compactFiles(files);
+  const placeholder = /data:image\/jpeg;base64,\[omitted:[a-z0-9]+\]/.exec(compact["/App.js"])![0];
+  const edits = restoreEdits([{ path: "/App.js", blocks: [{ search: `src="${placeholder}" alt="a"`, replace: `src="${placeholder}" alt="b"` }] }], table);
+  const { files: out, failures } = applyEdits(files, edits);
+  assert.deepEqual(failures, []);
+  assert.equal(out["/App.js"], `<img src="${big}" alt="b"/>`);
+});

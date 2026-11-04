@@ -17,7 +17,8 @@ import type { Issue } from "@/lib/validate";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { THEME_PATH, serializeTheme, type Theme } from "@/lib/theme";
 import { getSupabase } from "@/lib/supabase";
-import { compactFiles, restoreAll, type AssetTable } from "@/lib/assets";
+import { compactFiles, restoreAll, restoreEdits, type AssetTable } from "@/lib/assets";
+import { applyEdits } from "@/lib/edits";
 
 const VISUAL_NOTE = "Visual edits applied.";
 
@@ -112,10 +113,15 @@ export default function ProjectPage() {
     } catch (e: any) {
       raw += `\n\n[error] ${e?.message ?? "request failed"}`;
     }
-    const parsed = restoreAll(parseAssistant(raw).files, compact.table);
-    const merged = { ...p.files, ...parsed };
-    // A failed request (no files, only an error) must not become a "version".
-    const failed = Object.keys(parsed).length === 0 && raw.includes("[error]");
+    const result = parseAssistant(raw);
+    const parsed = restoreAll(result.files, compact.table);
+    // Patch edits: the model saw image placeholders, so restore them in the search/replace text too.
+    const { files: merged, failures: editFailures } = applyEdits(
+      { ...p.files, ...parsed },
+      restoreEdits(result.edits, compact.table)
+    );
+    // A failed request (no files or edits, only an error) must not become a "version".
+    const failed = Object.keys(parsed).length === 0 && result.edits.length === 0 && raw.includes("[error]");
     const next: Project = {
       ...p,
       files: merged,
@@ -142,7 +148,14 @@ export default function ProjectPage() {
         .then((r) => r.json())
         .then((d) => d.issues ?? [])
         .catch(() => []);
-      const errors = issues.filter((i) => i.severity === "error");
+      const errors: { file: string; message: string }[] = [
+        // Edits that could not be applied come first: the file is unchanged, so the model must resend it.
+        ...editFailures.map((f) => ({
+          file: f.path,
+          message: `your edit could not be applied (${f.reason}). Resend this file in full with a <file> block.`,
+        })),
+        ...issues.filter((i) => i.severity === "error"),
+      ];
       if (errors.length) {
         fixBudget.current -= 1;
         autoFixing.current = true;
@@ -156,6 +169,24 @@ export default function ProjectPage() {
         setStreaming("");
         return runRef.current?.(follow);
       }
+    }
+
+    // Edits that did not apply and could not be auto-fixed (budget used up): say so, never fail silently.
+    if (editFailures.length) {
+      const warn = editFailures.map((f) => `${f.path}: ${f.reason}`).join("; ");
+      const withWarning: Project = {
+        ...next,
+        messages: [
+          ...next.messages,
+          { role: "assistant", content: `[error] Some changes could not be applied (${warn}). Press Retry to try again.` },
+        ],
+      };
+      await saveProject(withWarning);
+      setProject(withWarning);
+      autoFixing.current = false;
+      setStreaming(null);
+      setBusy(false);
+      return;
     }
 
     // The first version of a new project is often thin: run one automatic expand pass.
@@ -203,10 +234,11 @@ export default function ProjectPage() {
   const liveFiles = useMemo(() => {
     if (!project) return {};
     if (streaming === null) return project.files;
-    const { files, openPath } = parseAssistant(streaming);
+    const { files, openPath, edits } = parseAssistant(streaming);
     const done = restoreAll(files, assetTable.current);
     if (openPath) delete done[openPath]; // don't compile half-written files
-    return { ...project.files, ...done };
+    // Completed edit blocks show up live too; ones that do not apply are ignored until the end.
+    return applyEdits({ ...project.files, ...done }, restoreEdits(edits, assetTable.current)).files;
   }, [project, streaming]);
 
   if (!project) return null;

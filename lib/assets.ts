@@ -2,7 +2,9 @@
 // Sending those to the model on every request would burn tokens, so they are swapped
 // for short placeholders on the way out and swapped back in on the way in.
 
-const DATA_URL = /data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]{200,}/g;
+import type { FileEdit } from "./edits";
+
+const DATA_URL =/data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]{200,}/g;
 const PLACEHOLDER = /data:image\/[a-zA-Z0-9+.-]+;base64,\[omitted:([a-z0-9]+)\]/g;
 
 function hash(s: string): string {
@@ -31,6 +33,14 @@ export function compactFiles(files: Record<string, string>): {
 
 export function restoreAssets(content: string, table: AssetTable): string {
   return content.replace(PLACEHOLDER, (m, id: string) => table[id] ?? m);
+}
+
+/** Restores image placeholders inside SEARCH/REPLACE edits (the model only saw the short form). */
+export function restoreEdits(edits: FileEdit[], table: AssetTable): FileEdit[] {
+  return edits.map((e) => ({
+    path: e.path,
+    blocks: e.blocks.map((b) => ({ search: restoreAssets(b.search, table), replace: restoreAssets(b.replace, table) })),
+  }));
 }
 
 export function restoreAll(files: Record<string, string>, table: AssetTable): Record<string, string> {

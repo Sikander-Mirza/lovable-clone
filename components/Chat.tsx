@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, FileCode2, Loader2, RotateCcw, Sparkles, Wrench } from "lucide-react";
+import { ArrowUp, FileCode2, Loader2, Pencil, RotateCcw, Sparkles, Wrench } from "lucide-react";
 import { suggestionsFor } from "@/lib/suggestions";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { AttachButton, Thumbs, useAttachments } from "./Attachments";
@@ -33,8 +33,13 @@ function AssistantBubble({
   /** present only when this version differs from the current project state */
   onRestore?: () => void;
 }) {
-  const { files, openPath, text } = parseAssistant(raw);
+  const { files, edits, openPath, openEditPath, text } = parseAssistant(raw);
   const paths = Object.keys(files);
+  // Small patches show as "edited" with how many changes, so users see what really changed.
+  const editRows = [
+    ...edits.map((e) => ({ path: e.path, n: e.blocks.length, open: false })),
+    ...(openEditPath ? [{ path: openEditPath, n: 0, open: true }] : []),
+  ];
   const isError = text.includes("[error]");
   return (
     <div className="space-y-2">
@@ -53,8 +58,22 @@ function AssistantBubble({
       ) : (
         text && <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">{text}</p>
       )}
-      {paths.length > 0 && (
+      {(paths.length > 0 || editRows.length > 0) && (
         <div className="space-y-1">
+          {editRows.map((e) => (
+            <div
+              key={`edit-${e.path}`}
+              className="flex items-center gap-2 rounded-md border border-sky-400/20 bg-sky-500/5 px-2.5 py-1.5 text-xs text-sky-200/80"
+            >
+              {live && e.open ? <Loader2 size={12} className="animate-spin" /> : <Pencil size={12} />}
+              {e.path}
+              {!e.open && (
+                <span className="ml-auto text-sky-200/50">
+                  {e.n} change{e.n === 1 ? "" : "s"}
+                </span>
+              )}
+            </div>
+          ))}
           {paths.map((p) => (
             <div
               key={p}

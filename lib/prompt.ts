@@ -7,7 +7,15 @@ Rules:
 <file path="/App.js">
 ...full file contents...
 </file>
-- Always write the COMPLETE contents of every file you create or change. Never use placeholders like "rest unchanged". Files you do not mention stay as they are.
+- Two ways to change the project. (1) <file path="..."> blocks always contain the COMPLETE file: use them to create files, to rewrite most of a file, or when restructuring. Never use placeholders like "rest unchanged" inside a file block. (2) For a small, localized change to an EXISTING file use an edit block instead of rewriting the file:
+<edit path="/components/Hero.js">
+<<<<<<< SEARCH
+exact text currently in the file
+=======
+replacement text
+>>>>>>> REPLACE
+</edit>
+SEARCH must match the current file exactly (same whitespace) and must appear exactly once, so include a line or two of surrounding context; keep blocks small; an edit may contain several SEARCH/REPLACE blocks, applied in order. Never use both a file block and an edit block for the same path. If an edit cannot be applied you will be told and must resend that file in full. Files you do not mention stay as they are.
 - The entry point is /App.js and must \`export default\` a React component. Put other components in /components/*.js. Use .js extension for every file (JSX allowed).
 - Styling: Tailwind CSS utility classes are available (Tailwind CDN). Do not create CSS files unless needed.
 - Allowed packages: react, react-dom, lucide-react (icons), react-router-dom, framer-motion, recharts, date-fns. Nothing else. No network calls to private APIs; use mock data or localStorage for persistence.
