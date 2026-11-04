@@ -45,14 +45,30 @@ export async function POST(req: Request) {
     files: Record<string, string>;
   };
 
-  const client = new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL, maxRetries: 0 });
-  const models = [
+  // Targets are tried in order: the primary provider's models, then (optionally) a backup
+  // provider such as OpenRouter. The backup is skipped for image requests (vision support varies).
+  const list = (v: string | undefined, dflt: string) =>
+    (v ?? dflt).split(",").map((m) => m.trim()).filter(Boolean);
+  const primary = new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL, maxRetries: 0 });
+  const targets: { client: OpenAI; model: string; provider: string }[] = [
     process.env.LLM_MODEL || "gemini-3-flash-preview",
-    ...(process.env.LLM_FALLBACK_MODELS ?? "gemini-3.1-flash-lite")
-      .split(",")
-      .map((m) => m.trim())
-      .filter(Boolean),
-  ].filter((m, i, a) => a.indexOf(m) === i);
+    ...list(process.env.LLM_FALLBACK_MODELS, "gemini-3.1-flash-lite"),
+  ]
+    .filter((m, i, a) => a.indexOf(m) === i)
+    .map((model) => ({ client: primary, model, provider: "primary" }));
+
+  const hasImages = messages.some((m) => m.images?.length);
+  if (process.env.LLM_BACKUP_API_KEY && !hasImages) {
+    const backup = new OpenAI({
+      apiKey: process.env.LLM_BACKUP_API_KEY,
+      baseURL: process.env.LLM_BACKUP_BASE_URL || "https://openrouter.ai/api/v1",
+      maxRetries: 0,
+      defaultHeaders: { "HTTP-Referer": process.env.APP_URL || "http://localhost:3000", "X-Title": "Lovable Clone" },
+    });
+    for (const model of list(process.env.LLM_BACKUP_MODELS, "cohere/north-mini-code:free")) {
+      targets.push({ client: backup, model, provider: "backup" });
+    }
+  }
 
   // Attach the current project files to the latest user turn.
   const msgs: OpenAI.Chat.ChatCompletionMessageParam[] = messages.map((m, i) => {
@@ -75,8 +91,11 @@ export async function POST(req: Request) {
     async start(controller) {
       let started = false;
       let lastError: any = null;
+      const deadProviders = new Set<string>(); // providers whose key was rejected
+      const t0 = Date.now();
       try {
-        outer: for (const model of models) {
+        for (const { client, model, provider } of targets) {
+          if (deadProviders.has(provider)) continue;
           for (let attempt = 0; attempt < ATTEMPTS_PER_MODEL; attempt++) {
             const ac = new AbortController();
             const timer = setTimeout(() => ac.abort(), FIRST_TOKEN_TIMEOUT_MS);
@@ -95,6 +114,7 @@ export async function POST(req: Request) {
                 if (!started) {
                   started = true;
                   clearTimeout(timer); // got the first token: no more stall timeout
+                  console.log(`[generate] ${provider}/${model} first token after ${Date.now() - t0}ms`);
                 }
                 controller.enqueue(encoder.encode(t));
               }
@@ -105,7 +125,11 @@ export async function POST(req: Request) {
               clearTimeout(timer);
               lastError = e;
               if (started) throw e; // mid-stream failure: can't switch models without duplicating text
-              if (e?.status === 401 || e?.status === 403) break outer; // key problem: no model will work
+              console.warn(`[generate] ${provider}/${model} failed: ${e?.status ?? e?.name ?? "error"} ${String(e?.message ?? "").slice(0, 100)}`);
+              if (e?.status === 401 || e?.status === 403) {
+                deadProviders.add(provider); // this provider's key is rejected: try the next provider
+                break;
+              }
               if (!isTransient(e)) break; // e.g. model not found: skip straight to the next model
             }
             // brief backoff before retrying / switching model
