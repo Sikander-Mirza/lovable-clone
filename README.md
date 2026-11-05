@@ -101,3 +101,5 @@ Generated forms save with `import { submitForm } from "lovable"`. In the preview
 ## Roadmap
 Done: auth + cloud persistence, GitHub sync, one-click deploy, version history, image attachments, auto-fix, persistent app data, multi-page routing, visual editor, theme, photos, forms backend, hosting guard, tests.
 Ideas: plan-then-build generation, sending only relevant files to the model (cost), responsive-specific styling in the editor, custom domains and SEO fields, AI-generated images (needs a paid image quota), diffs of AI changes.
+
+- **Full preview:** the expand button at the right end of the preview toolbar hides the top bar and the chat so the site fills the screen (the edit, theme and device tools stay available). Press Esc or the same button to leave.

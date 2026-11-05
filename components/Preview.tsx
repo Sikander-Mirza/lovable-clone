@@ -5,6 +5,8 @@ import {
   Code2,
   Eye,
   Inbox,
+  Maximize2,
+  Minimize2,
   Monitor,
   Pencil,
   Redo2,
@@ -47,6 +49,8 @@ export default function Preview({
   onSourceEdit,
   onRuntimeError,
   onThemeChange,
+  focusMode,
+  onToggleFocus,
   editDisabled,
   canUndo,
   canRedo,
@@ -63,6 +67,9 @@ export default function Preview({
   onRuntimeError?: (error: string) => void;
   /** Called when the user changes the site theme (brand color / fonts). */
   onThemeChange?: (theme: Theme) => void;
+  /** Full preview mode (chat and top bar hidden). */
+  focusMode?: boolean;
+  onToggleFocus?: () => void;
   editDisabled?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
@@ -250,6 +257,15 @@ export default function Preview({
                 <RefreshCw size={14} />
               </button>
             </>
+          )}
+          {onToggleFocus && (
+            <button
+              onClick={onToggleFocus}
+              title={focusMode ? "Exit full preview (Esc)" : "Full preview"}
+              className={`icon-btn ${focusMode ? "bg-violet-500/25 text-violet-100" : ""}`}
+            >
+              {focusMode ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
           )}
         </div>
         {error && (

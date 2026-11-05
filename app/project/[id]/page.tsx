@@ -56,6 +56,20 @@ export default function ProjectPage() {
     } catch {}
   }, [resizing, chatWidth]);
 
+  // Full preview: hides the top bar and the chat so the site fills the screen (Esc to leave).
+  const [focus, setFocus] = useState(false);
+  useEffect(() => {
+    if (!focus) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (e.key === "Escape" && !(el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)))) {
+        setFocus(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focus]);
+
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const assetTable = useRef<AssetTable>({});
@@ -365,7 +379,11 @@ export default function ProjectPage() {
   return (
     <div className="flex h-screen flex-col">
       {/* Top bar: where you are, and what you can do with the project */}
-      <header className="flex h-[52px] shrink-0 items-center gap-2 border-b border-white/[.08] bg-[#0a0a10] px-3">
+      <header
+        className={`h-[52px] shrink-0 items-center gap-2 border-b border-white/[.08] bg-[#0a0a10] px-3 ${
+          focus ? "hidden" : "flex"
+        }`}
+      >
         <Link href="/" title="All projects" className="icon-btn">
           <ArrowLeft size={17} />
         </Link>
@@ -427,7 +445,7 @@ export default function ProjectPage() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-      <aside style={{ width: chatWidth }} className="flex shrink-0 flex-col bg-[#0b0b11]">
+      <aside style={{ width: chatWidth }} className={`shrink-0 flex-col bg-[#0b0b11] ${focus ? "hidden" : "flex"}`}>
         <div className="min-h-0 flex-1">
           <Chat
             messages={project.messages}
@@ -448,7 +466,9 @@ export default function ProjectPage() {
         }}
         onDoubleClick={() => setChatWidth(400)}
         title="Drag to resize (double-click to reset)"
-        className="group relative z-10 w-1.5 shrink-0 cursor-col-resize bg-white/[.06] transition hover:bg-violet-400/50"
+        className={`group relative z-10 w-1.5 shrink-0 cursor-col-resize bg-white/[.06] transition hover:bg-violet-400/50 ${
+          focus ? "hidden" : ""
+        }`}
       >
         <span className="absolute left-1/2 top-1/2 h-8 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20 group-hover:bg-white/60" />
       </div>
@@ -460,6 +480,8 @@ export default function ProjectPage() {
           onSourceEdit={onSourceEdit}
           onRuntimeError={onRuntimeError}
           onThemeChange={onThemeChange}
+          focusMode={focus}
+          onToggleFocus={() => setFocus((v) => !v)}
           editDisabled={busy}
           canUndo={past.current.length > 0 && !busy}
           canRedo={future.current.length > 0 && !busy}
