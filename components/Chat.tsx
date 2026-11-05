@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, FileCode2, Loader2, Pencil, RotateCcw, Sparkles, Wrench } from "lucide-react";
 import { suggestionsFor } from "@/lib/suggestions";
+import BuildProgress from "./BuildProgress";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { AttachButton, Thumbs, useAttachments } from "./Attachments";
 import type { Message } from "@/lib/store";
@@ -174,11 +175,20 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
             />
           )
         )}
-        {streaming !== null && <AssistantBubble raw={streaming} live />}
-        {busy && streaming === "" && (
-          <div className="flex items-center gap-2 text-sm text-white/50">
-            <Loader2 size={14} className="animate-spin" /> Thinking...
-          </div>
+        {streaming !== null && streaming !== "" && <AssistantBubble raw={streaming} live />}
+        {busy && streaming !== null && (
+          <BuildProgress
+            raw={streaming}
+            mode={
+              messages[messages.length - 1]?.auto === "fix"
+                ? "fix"
+                : messages[messages.length - 1]?.auto
+                  ? "expand"
+                  : Object.keys(currentFiles).length === 0
+                    ? "build"
+                    : "update"
+            }
+          />
         )}
         {!busy && streaming === null && messages.length > 1 && messages[messages.length - 1].snapshot && (
           <div className="flex flex-wrap gap-1.5 pt-1">

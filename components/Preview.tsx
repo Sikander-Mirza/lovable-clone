@@ -11,6 +11,7 @@ import {
   Pencil,
   Redo2,
   RefreshCw,
+  Sparkles,
   Smartphone,
   Tablet,
   Undo2,
@@ -21,6 +22,7 @@ import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
 import ThemePanel from "./ThemePanel";
 import SubmissionsPanel from "./SubmissionsPanel";
+import BuildingWireframe from "./BuildingWireframe";
 import { addSubmission } from "@/lib/submissions";
 import type { Theme } from "@/lib/theme";
 
@@ -51,6 +53,7 @@ export default function Preview({
   onThemeChange,
   focusMode,
   onToggleFocus,
+  building,
   editDisabled,
   canUndo,
   canRedo,
@@ -70,6 +73,8 @@ export default function Preview({
   /** Full preview mode (chat and top bar hidden). */
   focusMode?: boolean;
   onToggleFocus?: () => void;
+  /** True while the AI is generating: shows the building animation. */
+  building?: boolean;
   editDisabled?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
@@ -300,10 +305,21 @@ export default function Preview({
       )}
 
       <div className="relative min-h-0 flex-1">
+        {/* While the AI works on an existing site: a moving bar and a small status pill */}
+        {building && paths.length > 0 && tab === "preview" && (
+          <>
+            <div className="progress-indeterminate absolute inset-x-0 top-0 z-20 !rounded-none" />
+            <div className="rise pointer-events-none absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-[#0d0d14]/90 px-3 py-1 text-xs text-violet-100 shadow-lg backdrop-blur">
+              <Sparkles size={12} className="animate-pulse" /> AI is updating your site
+            </div>
+          </>
+        )}
         {!paths.length ? (
-          <div className="flex h-full items-center justify-center text-white/40">
-            Your app will appear here.
-          </div>
+          building ? (
+            <BuildingWireframe />
+          ) : (
+            <div className="flex h-full items-center justify-center text-white/40">Your app will appear here.</div>
+          )
         ) : (
           <>
             <div

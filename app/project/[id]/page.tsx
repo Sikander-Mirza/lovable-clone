@@ -480,6 +480,7 @@ export default function ProjectPage() {
           onSourceEdit={onSourceEdit}
           onRuntimeError={onRuntimeError}
           onThemeChange={onThemeChange}
+          building={busy}
           focusMode={focus}
           onToggleFocus={() => setFocus((v) => !v)}
           editDisabled={busy}
