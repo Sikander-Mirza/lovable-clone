@@ -3,7 +3,7 @@
 import { Sparkles } from "lucide-react";
 
 /** A page skeleton that "assembles itself" with a scanning line, shown before the first file exists. */
-export default function BuildingWireframe() {
+export default function BuildingWireframe({ label = "Designing and writing your site" }: { label?: string }) {
   // Each block fades in a little after the previous one, so the page seems to be drawn top to bottom.
   const blk = (i: number) => ({ animationDelay: `${i * 0.22}s` });
   const bar = "shimmer block-in rounded-md";
@@ -64,7 +64,7 @@ export default function BuildingWireframe() {
 
         <div className="mt-5 flex items-center justify-center gap-2 text-sm text-violet-200/80">
           <Sparkles size={15} className="animate-pulse" />
-          <span className="caret">Designing and writing your site</span>
+          <span className="caret">{label}</span>
         </div>
       </div>
     </div>
