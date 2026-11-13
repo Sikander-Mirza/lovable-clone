@@ -1,4 +1,5 @@
 import { currentUserId, getSupabase } from "./supabase";
+import type { Plan } from "./plan";
 
 export type Message = {
   role: "user" | "assistant";
@@ -7,6 +8,8 @@ export type Message = {
   images?: string[];
   /** Answers to the pre-build questions; sent to the model together with `content`. */
   details?: string;
+  /** The plan the user approved before the first build; sent to the model with `content`. */
+  plan?: Plan;
   /**
    * Written by the app, not the user: the automatic "expand the site" pass or an
    * automatic "fix the preview error" pass. (Older saved projects used `true` = expand.)

@@ -14,6 +14,7 @@ import { getProject, saveProject, type Message, type Project } from "@/lib/store
 import { parseAssistant } from "@/lib/parse";
 import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt, staticFixPrompt } from "@/lib/prompt";
 import type { Issue } from "@/lib/validate";
+import { formatPlan, type Plan } from "@/lib/plan";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { THEME_PATH, serializeTheme, type Theme } from "@/lib/theme";
 import { getSupabase } from "@/lib/supabase";
@@ -109,7 +110,7 @@ export default function ProjectPage() {
         body: JSON.stringify({
           messages: p.messages.map((m, i) => ({
             role: m.role,
-            content: m.details ? `${m.content}\n\n${m.details}` : m.content,
+            content: [m.content, m.details, m.plan ? formatPlan(m.plan) : ""].filter(Boolean).join("\n\n"),
             ...(i === p.messages.length - 1 && m.images ? { images: m.images } : {}),
           })),
           files: compact.files,
@@ -236,13 +237,79 @@ export default function ProjectPage() {
     getProject(id).then((p) => {
       if (!p) return router.replace("/");
       setProject(p);
-      // A brand-new project has only the first user message: kick off generation.
+      // A brand-new project has only the first user message: plan it first (websites), or build.
       if (!started.current && p.messages.length === 1 && p.messages[0].role === "user") {
         started.current = true;
-        run(p);
+        let planFirst = true;
+        try {
+          planFirst = localStorage.getItem("lovable-clone:plan-first") !== "off";
+        } catch {}
+        if (planFirst && !p.messages[0].plan) requestPlan(p);
+        else run(p);
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, router, run]);
+
+  // ---- plan before build ----
+  const [planning, setPlanning] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState<{ project: Project; plan: Plan } | null>(null);
+
+  async function requestPlan(p: Project) {
+    setPlanning(true);
+    try {
+      const res = await fetch("/api/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: p.messages[0].content, details: p.messages[0].details ?? "" }),
+      });
+      const { plan } = (await res.json()) as { plan: Plan | null };
+      setPlanning(false);
+      // Small tools and planner failures build straight away.
+      if (!plan || plan.kind !== "site") return void run(p);
+      setPendingPlan({ project: p, plan });
+    } catch {
+      setPlanning(false);
+      run(p);
+    }
+  }
+
+  const approvePlan = () => {
+    if (!pendingPlan) return;
+    const { project: p, plan } = pendingPlan;
+    const first = { ...p.messages[0], plan };
+    const next: Project = { ...p, messages: [first] };
+    setPendingPlan(null);
+    saveProject(next);
+    setProject(next);
+    run(next);
+  };
+
+  const [replanning, setReplanning] = useState(false);
+  const replan = async () => {
+    if (!pendingPlan) return;
+    setReplanning(true);
+    try {
+      const p = pendingPlan.project;
+      const res = await fetch("/api/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: p.messages[0].content, details: p.messages[0].details ?? "" }),
+      });
+      const { plan } = (await res.json()) as { plan: Plan | null };
+      if (plan?.kind === "site") setPendingPlan({ project: p, plan });
+    } catch {
+      /* keep the current plan */
+    }
+    setReplanning(false);
+  };
+
+  const skipPlan = () => {
+    if (!pendingPlan) return;
+    const p = pendingPlan.project;
+    setPendingPlan(null);
+    run(p);
+  };
 
   // Live files = saved files overlaid with whatever has streamed in so far.
   const liveFiles = useMemo(() => {
@@ -451,10 +518,17 @@ export default function ProjectPage() {
             messages={project.messages}
             currentFiles={project.files}
             streaming={streaming}
-            busy={busy}
+            busy={busy || planning || !!pendingPlan}
             onSend={send}
             onRestore={restore}
             onRetry={retry}
+            planning={planning}
+            plan={pendingPlan?.plan ?? null}
+            replanning={replanning}
+            onPlanChange={(plan) => setPendingPlan((cur) => (cur ? { ...cur, plan } : cur))}
+            onApprovePlan={approvePlan}
+            onSkipPlan={skipPlan}
+            onReplan={replan}
           />
         </div>
       </aside>
@@ -480,7 +554,7 @@ export default function ProjectPage() {
           onSourceEdit={onSourceEdit}
           onRuntimeError={onRuntimeError}
           onThemeChange={onThemeChange}
-          building={busy}
+          building={busy || planning}
           focusMode={focus}
           onToggleFocus={() => setFocus((v) => !v)}
           editDisabled={busy}

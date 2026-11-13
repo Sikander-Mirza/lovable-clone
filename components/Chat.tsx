@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, FileCode2, Loader2, Pencil, RotateCcw, Sparkles, Wrench } from "lucide-react";
 import { suggestionsFor } from "@/lib/suggestions";
 import BuildProgress from "./BuildProgress";
+import PlanCard from "./PlanCard";
+import type { Plan } from "@/lib/plan";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { AttachButton, Thumbs, useAttachments } from "./Attachments";
 import type { Message } from "@/lib/store";
@@ -17,6 +19,14 @@ type Props = {
   onSend: (text: string, images: string[]) => void;
   onRestore: (messageIndex: number) => void;
   onRetry: () => void;
+  /** Plan-before-build: the planner is thinking / a plan awaits review. */
+  planning?: boolean;
+  plan?: Plan | null;
+  replanning?: boolean;
+  onPlanChange?: (p: Plan) => void;
+  onApprovePlan?: () => void;
+  onSkipPlan?: () => void;
+  onReplan?: () => void;
 };
 
 function AssistantBubble({
@@ -107,7 +117,22 @@ function AssistantBubble({
   );
 }
 
-export default function Chat({ messages, currentFiles, streaming, busy, onSend, onRestore, onRetry }: Props) {
+export default function Chat({
+  messages,
+  currentFiles,
+  streaming,
+  busy,
+  onSend,
+  onRestore,
+  onRetry,
+  planning,
+  plan,
+  replanning,
+  onPlanChange,
+  onApprovePlan,
+  onSkipPlan,
+  onReplan,
+}: Props) {
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -152,6 +177,20 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
                 </div>
               )}
               {m.content}
+              {m.plan && (
+                <div className="space-y-1.5 border-t border-white/20 pt-2 text-xs text-white/80">
+                  <div className="italic leading-snug">{m.plan.direction}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {m.plan.sections
+                      .filter((s) => s.include)
+                      .map((s, j) => (
+                        <span key={j} className="rounded bg-white/15 px-1.5 py-0.5 text-[10px]">
+                          {s.title}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              )}
               {m.details && (
                 <ul className="space-y-0.5 border-t border-white/20 pt-2 text-xs text-white/75">
                   {m.details
@@ -174,6 +213,30 @@ export default function Chat({ messages, currentFiles, streaming, busy, onSend, 
               }
             />
           )
+        )}
+        {planning && (
+          <div className="rise rounded-2xl border border-violet-400/20 bg-violet-500/[.06] p-3.5">
+            <div className="flex items-center gap-2.5">
+              <span className="orb flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500">
+                <Sparkles size={14} className="text-white" />
+              </span>
+              <div>
+                <div className="text-sm font-medium">Planning your site</div>
+                <div className="text-[11px] text-white/40">Choosing a visual direction and the sections...</div>
+              </div>
+            </div>
+            <div className="progress-indeterminate mt-3" />
+          </div>
+        )}
+        {plan && onPlanChange && onApprovePlan && onSkipPlan && onReplan && (
+          <PlanCard
+            plan={plan}
+            onChange={onPlanChange}
+            onApprove={onApprovePlan}
+            onSkip={onSkipPlan}
+            onReplan={onReplan}
+            replanning={replanning}
+          />
         )}
         {streaming !== null && streaming !== "" && <AssistantBubble raw={streaming} live />}
         {busy && streaming !== null && (

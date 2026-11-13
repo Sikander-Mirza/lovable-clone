@@ -111,6 +111,20 @@ export default function Home() {
     } catch {}
   };
 
+  // Show an editable plan (direction, palette, sections) before websites are built.
+  const [planFirst, setPlanFirst] = useState(true);
+  useEffect(() => {
+    try {
+      setPlanFirst(localStorage.getItem("lovable-clone:plan-first") !== "off");
+    } catch {}
+  }, []);
+  const togglePlan = (on: boolean) => {
+    setPlanFirst(on);
+    try {
+      localStorage.setItem("lovable-clone:plan-first", on ? "on" : "off");
+    } catch {}
+  };
+
   const toggleAsk = (on: boolean) => {
     setAskFirst(on);
     try {
@@ -192,6 +206,12 @@ export default function Home() {
                   onChange={toggleAsk}
                   label="Ask me questions first"
                   hint="A short questionnaire first, so the result matches what you want"
+                />
+                <Toggle
+                  checked={planFirst}
+                  onChange={togglePlan}
+                  label="Review a plan first"
+                  hint="The AI proposes a visual direction, palette and sections for you to edit before it builds"
                 />
                 <Toggle
                   checked={autoExpand}
