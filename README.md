@@ -112,3 +112,5 @@ Done: auth + cloud persistence, GitHub sync, one-click deploy, version history, 
 Ideas: plan-then-build generation, sending only relevant files to the model (cost), responsive-specific styling in the editor, custom domains and SEO fields, AI-generated images (needs a paid image quota), diffs of AI changes.
 
 - **Full preview:** the expand button at the right end of the preview toolbar hides the top bar and the chat so the site fills the screen (the edit, theme and device tools stay available). Press Esc or the same button to leave.
+
+- **Plan adherence check** (lib/planCheck.ts): on the first build of a planned single-page site, App.js is compared with the plan. Extra sections and missing ones are sent back to the AI automatically (shares the auto-fix budget), and the AI can remove files with <delete path=.../>. Section components are named after the plan titles so this is deterministic. Multi-route sites are not checked.

@@ -15,11 +15,13 @@ import { parseAssistant } from "@/lib/parse";
 import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt, staticFixPrompt } from "@/lib/prompt";
 import type { Issue } from "@/lib/validate";
 import { formatPlan, type Plan } from "@/lib/plan";
+import { checkPlan, planFixPrompt } from "@/lib/planCheck";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { THEME_PATH, serializeTheme, type Theme } from "@/lib/theme";
 import { getSupabase } from "@/lib/supabase";
 import { compactFiles, restoreAll, restoreEdits, type AssetTable } from "@/lib/assets";
 import { applyEdits } from "@/lib/edits";
+import { applyDeletes } from "@/lib/parse";
 
 const VISUAL_NOTE = "Visual edits applied.";
 
@@ -131,10 +133,11 @@ export default function ProjectPage() {
     const result = parseAssistant(raw);
     const parsed = restoreAll(result.files, compact.table);
     // Patch edits: the model saw image placeholders, so restore them in the search/replace text too.
-    const { files: merged, failures: editFailures } = applyEdits(
+    const { files: edited, failures: editFailures } = applyEdits(
       { ...p.files, ...parsed },
       restoreEdits(result.edits, compact.table)
     );
+    const merged = applyDeletes(edited, result.deletes);
     // A failed request (no files or edits, only an error) must not become a "version".
     const failed = Object.keys(parsed).length === 0 && result.edits.length === 0 && raw.includes("[error]");
     const next: Project = {
@@ -171,13 +174,23 @@ export default function ProjectPage() {
         })),
         ...issues.filter((i) => i.severity === "error"),
       ];
-      if (errors.length) {
+      // First build of a planned site: did it follow the approved plan (no extra, no missing sections)?
+      const plan = p.messages[0]?.plan;
+      const firstBuild = p.messages.filter((m) => m.role === "user" && !m.auto).length === 1;
+      const planProblems = plan && firstBuild ? checkPlan(merged, plan) : null;
+      if (errors.length || planProblems) {
         fixBudget.current -= 1;
         autoFixing.current = true;
         const list = errors.map((i) => `- ${i.file}: ${i.message}`).join("\n");
+        const content = [
+          errors.length ? staticFixPrompt(list.slice(0, 2500)) : "",
+          planProblems ? planFixPrompt(planProblems) : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n");
         const follow: Project = {
           ...next,
-          messages: [...next.messages, { role: "user", content: staticFixPrompt(list.slice(0, 2500)), auto: "fix" }],
+          messages: [...next.messages, { role: "user", content, auto: "fix" }],
         };
         await saveProject(follow);
         setProject(follow);
@@ -315,11 +328,11 @@ export default function ProjectPage() {
   const liveFiles = useMemo(() => {
     if (!project) return {};
     if (streaming === null) return project.files;
-    const { files, openPath, edits } = parseAssistant(streaming);
+    const { files, openPath, edits, deletes } = parseAssistant(streaming);
     const done = restoreAll(files, assetTable.current);
     if (openPath) delete done[openPath]; // don't compile half-written files
     // Completed edit blocks show up live too; ones that do not apply are ignored until the end.
-    return applyEdits({ ...project.files, ...done }, restoreEdits(edits, assetTable.current)).files;
+    return applyDeletes(applyEdits({ ...project.files, ...done }, restoreEdits(edits, assetTable.current)).files, deletes);
   }, [project, streaming]);
 
   if (!project) return null;

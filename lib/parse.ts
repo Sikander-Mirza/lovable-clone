@@ -4,6 +4,8 @@ export type ParsedFiles = {
   files: Record<string, string>;
   /** SEARCH/REPLACE patches for existing files (complete <edit> blocks only) */
   edits: FileEdit[];
+  /** files the model asked to delete: <delete path="/x.js" /> */
+  deletes: string[];
   /** path of a file block that is still streaming (no closing tag yet) */
   openPath?: string;
   /** path of an edit block that is still streaming */
@@ -14,10 +16,12 @@ export type ParsedFiles = {
 
 const BLOCK = /<file path="([^"]+)">\n?([\s\S]*?)<\/file>/g;
 const EDIT = /<edit path="([^"]+)">\n?([\s\S]*?)<\/edit>/g;
+const DELETE = /<delete path="([^"]+)"\s*\/?>(?:\s*<\/delete>)?/g;
 
 export function parseAssistant(raw: string): ParsedFiles {
   const files: Record<string, string> = {};
   const edits: FileEdit[] = [];
+  const deletes: string[] = [];
 
   let text = raw.replace(BLOCK, (_m, path: string, body: string) => {
     files[path] = body.replace(/\n$/, "");
@@ -25,6 +29,10 @@ export function parseAssistant(raw: string): ParsedFiles {
   });
   text = text.replace(EDIT, (_m, path: string, body: string) => {
     edits.push({ path, blocks: parseBlocks(body) });
+    return "";
+  });
+  text = text.replace(DELETE, (_m, path: string) => {
+    deletes.push(path);
     return "";
   });
 
@@ -41,5 +49,16 @@ export function parseAssistant(raw: string): ParsedFiles {
     openEditPath = openEdit[1];
     text = text.slice(0, openEdit.index);
   }
-  return { files, edits, openPath, openEditPath, text: text.replace(/\n{3,}/g, "\n\n").trim() };
+  return { files, edits, deletes, openPath, openEditPath, text: text.replace(/\n{3,}/g, "\n\n").trim() };
+}
+
+/** Paths the model may never delete. */
+const PROTECTED = new Set(["/App.js", "/theme.json"]);
+
+/** Removes the files the model asked to delete (never the entry file or the theme). */
+export function applyDeletes(files: Record<string, string>, deletes: string[]): Record<string, string> {
+  if (!deletes.length) return files;
+  const out = { ...files };
+  for (const p of deletes) if (!PROTECTED.has(p)) delete out[p];
+  return out;
 }
