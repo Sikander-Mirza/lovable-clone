@@ -8,7 +8,7 @@ test("export adds SEO tags, lang, robots.txt, sitemap and the WhatsApp button fr
     whatsapp: { enabled: true, number: "923001234567", message: "Salam" },
   };
   const out = toRepoFiles({ "/App.js": "export default () => null", "/site.json": JSON.stringify(site) }, "Fallback name");
-  assert.match(out["index.html"], /<html lang="ur">/);
+  assert.match(out["index.html"], /<html lang="ur" dir="rtl">/);
   assert.match(out["index.html"], /<title>Noor Coffee House<\/title>/);
   assert.match(out["index.html"], /name="description" content="Specialty coffee in Lahore"/);
   assert.match(out["index.html"], /og:image" content="https:\/\/x.test\/share.jpg"/);

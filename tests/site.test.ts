@@ -44,3 +44,15 @@ test("serialize round-trips through parse", () => {
   const s = { ...DEFAULT_SITE, seo: { ...DEFAULT_SITE.seo, title: "T", lang: "ur" } };
   assert.deepEqual(parseSite({ "/site.json": serializeSite(s) }), s);
 });
+
+import { htmlAttrs, isRtl, scriptFontCss, scriptFontLink } from "../lib/site";
+
+test("Urdu and Arabic pages are right-to-left with a script font; English is untouched", () => {
+  assert.equal(htmlAttrs("ur"), 'lang="ur" dir="rtl"');
+  assert.equal(htmlAttrs("en"), 'lang="en"');
+  assert.ok(isRtl("ar") && isRtl("he") && !isRtl("hi") && !isRtl("en"));
+  assert.match(scriptFontLink("ur"), /Noto\+Nastaliq\+Urdu/);
+  assert.match(scriptFontCss("ar"), /Noto Sans Arabic/);
+  assert.equal(scriptFontLink("en"), "");
+  assert.equal(scriptFontCss("en"), "");
+});

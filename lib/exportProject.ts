@@ -2,7 +2,7 @@
 // Vite + React + Tailwind scaffold so the repo works with `npm install && npm run dev`.
 
 import { THEME_PATH, fontsHref, parseTheme, tailwindConfig } from "./theme";
-import { SITE_PATH, parseSite, seoTags, whatsappWidget } from "./site";
+import { SITE_PATH, htmlAttrs, parseSite, scriptFontCss, scriptFontLink, seoTags, whatsappWidget } from "./site";
 
 const slug = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "app";
@@ -104,13 +104,15 @@ export default defineConfig({
 `;
 
   out["index.html"] = `<!DOCTYPE html>
-<html lang="${site.seo.lang}">
+<html ${htmlAttrs(site.seo.lang)}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     ${seoTags(site.seo, name)}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="stylesheet" href="${fontsHref(theme)}" />
+    ${scriptFontLink(site.seo.lang)}
+    ${scriptFontCss(site.seo.lang) ? `<style>${scriptFontCss(site.seo.lang)}</style>` : ""}
   </head>
   <body>
     <div id="root"></div>

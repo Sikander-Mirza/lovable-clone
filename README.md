@@ -125,3 +125,6 @@ The **Health** button in the preview toolbar scores the site on SEO, accessibili
 
 ## Redesign one section
 In the **Sections** panel every section has a ✨ button. Optionally say what to change, press **Redesign**, and the AI rewrites only that section's file.
+
+## Urdu, Arabic and right-to-left
+Pick a language in **Site**. Urdu, Arabic, Persian and Hebrew set `dir="rtl"` and load a matching script font (Noto Nastaliq Urdu, Noto Sans Arabic...), in the preview and in the exported site. **Translate the site to ...** asks the AI to rewrite all text in that language.

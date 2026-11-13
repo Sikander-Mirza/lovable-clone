@@ -3,7 +3,7 @@
 // the module graph, and an import map points npm packages at esm.sh.
 
 import { fontsHref, parseTheme, tailwindConfig } from "./theme";
-import { parseSite, whatsappWidget } from "./site";
+import { htmlAttrs, parseSite, scriptFontCss, scriptFontLink, whatsappWidget } from "./site";
 
 const REACT = "18.3.1";
 
@@ -789,7 +789,7 @@ export function buildPreviewDoc(
   const theme = parseTheme(files);
   const site = parseSite(files);
   return `<!DOCTYPE html>
-<html lang="${site.seo.lang}">
+<html ${htmlAttrs(site.seo.lang)}>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -798,9 +798,10 @@ export function buildPreviewDoc(
 <style>html,body{margin:0;background:#fff;color:#111;min-height:100%}</style>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="stylesheet" href="${fontsHref(theme)}" />
+${scriptFontLink(site.seo.lang)}
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config = ${safe(JSON.stringify(tailwindConfig(theme)))};</script>
-<style>body{font-family:'${theme.font}',ui-sans-serif,system-ui,sans-serif}h1,h2,h3,h4,h5,h6{font-family:'${theme.headingFont}',ui-sans-serif,system-ui,sans-serif}</style>
+<style>body{font-family:'${theme.font}',ui-sans-serif,system-ui,sans-serif}h1,h2,h3,h4,h5,h6{font-family:'${theme.headingFont}',ui-sans-serif,system-ui,sans-serif}${scriptFontCss(site.seo.lang)}</style>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.4/babel.min.js"></script>
 <script type="importmap">${safe(JSON.stringify(IMPORT_MAP))}</script>
 </head>

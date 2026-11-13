@@ -349,7 +349,7 @@ export default function Preview({
           <SectionsPanel files={files} onFilesChange={onFilesChange} onAskAI={onAskAI} />
         )}
         {tab === "preview" && paths.length > 0 && onSiteChange && (
-          <SitePanel files={files} projectName={projectName ?? ""} onChange={onSiteChange} />
+          <SitePanel files={files} projectName={projectName ?? ""} onChange={onSiteChange} onAskAI={onAskAI} />
         )}
         {tab === "preview" && paths.length > 0 && onAskAI && !editDisabled && (
           <HealthPanel files={files} runProbe={runProbe} onAskAI={onAskAI} />

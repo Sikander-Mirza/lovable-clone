@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Globe } from "lucide-react";
-import { parseSite, type SiteSettings } from "@/lib/site";
+import { Globe, Languages } from "lucide-react";
+import { isRtl, parseSite, type SiteSettings } from "@/lib/site";
+
+const translatePrompt = (code: string, name: string) =>
+  `Translate every visible text on the site into ${name} (natural wording, not word for word), including the page title and description in /site.json, and set "lang" in /site.json seo to "${code}". Keep the layout, the brand and the file structure.` +
+  (isRtl(code) ? " The page is right-to-left: use direction-neutral Tailwind classes (ms-/me-/ps-/pe-/text-start) and flip directional icons with rtl:rotate-180." : "");
 
 const LANGS: [string, string][] = [
   ["en", "English"],
@@ -20,10 +24,12 @@ export default function SitePanel({
   files,
   projectName,
   onChange,
+  onAskAI,
 }: {
   files: Record<string, string>;
   projectName: string;
   onChange: (s: SiteSettings) => void;
+  onAskAI?: (prompt: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   // Open towards the left when there is not enough room on the right (narrow windows).
@@ -117,8 +123,21 @@ export default function SitePanel({
                   </select>
                 </label>
               </div>
+              {onAskAI && Object.keys(files).length > 0 && (
+                <button
+                  onClick={() => {
+                    const name = LANGS.find(([c]) => c === draft.seo.lang)?.[1] ?? draft.seo.lang;
+                    setOpen(false);
+                    onAskAI(translatePrompt(draft.seo.lang, name));
+                  }}
+                  className="btn mt-2.5 h-8 w-full border border-white/10 text-xs"
+                  title="Rewrite all the text of the site in the selected language"
+                >
+                  <Languages size={13} /> Translate the site to {LANGS.find(([c]) => c === draft.seo.lang)?.[1]}
+                </button>
+              )}
               <p className="mt-2 text-[11px] leading-snug text-white/35">
-                Added to the page head when you download or deploy. The site address also creates a sitemap.
+                Added to the page head when you download or deploy. The site address also creates a sitemap. Urdu and Arabic switch the page to right-to-left with a proper font.
               </p>
             </div>
 
