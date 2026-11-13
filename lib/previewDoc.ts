@@ -3,6 +3,7 @@
 // the module graph, and an import map points npm packages at esm.sh.
 
 import { fontsHref, parseTheme, tailwindConfig } from "./theme";
+import { parseSite, whatsappWidget } from "./site";
 
 const REACT = "18.3.1";
 
@@ -711,8 +712,9 @@ export function buildPreviewDoc(
 ): string {
   const safe = (s: string) => s.replace(/</g, "\\u003c");
   const theme = parseTheme(files);
+  const site = parseSite(files);
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${site.seo.lang}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -729,6 +731,7 @@ export function buildPreviewDoc(
 </head>
 <body>
 <div id="root"></div>
+${whatsappWidget(site.whatsapp)}
 <script>window.__FILES__ = ${safe(JSON.stringify(files))};</script>
 <script>${EDITOR}</script>
 <script>${RUNNER}</script>

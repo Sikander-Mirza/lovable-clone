@@ -114,3 +114,8 @@ Ideas: plan-then-build generation, sending only relevant files to the model (cos
 - **Full preview:** the expand button at the right end of the preview toolbar hides the top bar and the chat so the site fills the screen (the edit, theme and device tools stay available). Press Esc or the same button to leave.
 
 - **Plan adherence check** (lib/planCheck.ts): on the first build of a planned single-page site, App.js is compared with the plan. Extra sections and missing ones are sent back to the AI automatically (shares the auto-fix budget), and the AI can remove files with <delete path=.../>. Section components are named after the plan titles so this is deterministic. Multi-route sites are not checked.
+
+## Site settings, sections panel and plan card
+- **Site panel** (toolbar, "Site"): page title, description, share image, site address and language for search engines and social sharing, plus a **WhatsApp chat button** (number with country code and a first message). Stored in `/site.json` (versioned, undoable). The preview shows the button; the download and the Vercel deploy get the `<title>`/description/Open Graph tags, `<html lang>`, `public/robots.txt`, a one-URL `sitemap.xml` (when the site address is set) and the button (`lib/site.ts`). New sites get a first `/site.json` from the AI.
+- **Sections panel** (toolbar, "Sections"): reorder, hide (commented out in `App.js`), remove (line, import and file) and add ready-made sections from a small library (FAQ accordion, Pricing, Newsletter signup using the form helper, Stats strip). No AI involved (`lib/sections.ts`); it works on single-page sites where `App.js` lists one `<Section />` per line.
+- **Plan card:** a dashed **Add a section** button adds your own section to the plan.

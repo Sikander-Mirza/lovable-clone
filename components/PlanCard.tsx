@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ClipboardList, Loader2, RefreshCw } from "lucide-react";
+import { ArrowDown, ArrowUp, ClipboardList, Loader2, Plus, RefreshCw } from "lucide-react";
 import { FONTS } from "@/lib/theme";
 import type { Plan, PlanSection } from "@/lib/plan";
 
@@ -128,6 +128,18 @@ export default function PlanCard({
             </li>
           ))}
         </ol>
+        <button
+          onClick={() =>
+            onChange({
+              ...plan,
+              sections: [...plan.sections, { title: "New section", purpose: "", layout: "", content: "", include: true }],
+            })
+          }
+          disabled={plan.sections.length >= 12}
+          className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 py-1.5 text-xs text-white/55 hover:border-violet-400/50 hover:text-white disabled:opacity-40"
+        >
+          <Plus size={12} /> Add a section
+        </button>
       </div>
 
       {plan.features.length > 0 && (

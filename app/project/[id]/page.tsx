@@ -16,6 +16,7 @@ import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt, staticFixPrompt } from "@
 import type { Issue } from "@/lib/validate";
 import { formatPlan, type Plan } from "@/lib/plan";
 import { checkPlan, planFixPrompt } from "@/lib/planCheck";
+import { SITE_PATH, serializeSite, type SiteSettings } from "@/lib/site";
 import { sameFiles, versionNumber } from "@/lib/versions";
 import { THEME_PATH, serializeTheme, type Theme } from "@/lib/theme";
 import { getSupabase } from "@/lib/supabase";
@@ -380,6 +381,23 @@ export default function ProjectPage() {
     applyFiles({ ...p.files, [THEME_PATH]: json });
   };
 
+  // Sections panel: whole-file-set changes (reorder, hide, remove, add from the library).
+  const onFilesChange = (files: Record<string, string>) => {
+    const p = projectRef.current;
+    if (!p || busy) return;
+    pushHistory(p.files);
+    applyFiles(files);
+  };
+
+  const onSiteChange = (site: SiteSettings) => {
+    const p = projectRef.current;
+    if (!p || busy) return;
+    const json = serializeSite(site);
+    if (p.files[SITE_PATH] === json) return;
+    pushHistory(p.files);
+    applyFiles({ ...p.files, [SITE_PATH]: json });
+  };
+
   const undo = () => {
     const prev = past.current.pop();
     const p = projectRef.current;
@@ -567,6 +585,9 @@ export default function ProjectPage() {
           onSourceEdit={onSourceEdit}
           onRuntimeError={onRuntimeError}
           onThemeChange={onThemeChange}
+          onSiteChange={onSiteChange}
+          onFilesChange={onFilesChange}
+          projectName={project.name}
           building={busy || planning}
           focusMode={focus}
           onToggleFocus={() => setFocus((v) => !v)}

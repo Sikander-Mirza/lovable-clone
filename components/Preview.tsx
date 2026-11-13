@@ -21,6 +21,9 @@ import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
 import ThemePanel from "./ThemePanel";
+import SitePanel from "./SitePanel";
+import SectionsPanel from "./SectionsPanel";
+import type { SiteSettings } from "@/lib/site";
 import SubmissionsPanel from "./SubmissionsPanel";
 import BuildingWireframe from "./BuildingWireframe";
 import { addSubmission } from "@/lib/submissions";
@@ -51,6 +54,9 @@ export default function Preview({
   onSourceEdit,
   onRuntimeError,
   onThemeChange,
+  onSiteChange,
+  onFilesChange,
+  projectName,
   focusMode,
   onToggleFocus,
   building,
@@ -70,6 +76,11 @@ export default function Preview({
   onRuntimeError?: (error: string) => void;
   /** Called when the user changes the site theme (brand color / fonts). */
   onThemeChange?: (theme: Theme) => void;
+  /** Called when SEO / WhatsApp settings change. */
+  onSiteChange?: (site: SiteSettings) => void;
+  /** Called with the whole new file set when sections are reordered, hidden, removed or added. */
+  onFilesChange?: (files: Record<string, string>) => void;
+  projectName?: string;
   /** Full preview mode (chat and top bar hidden). */
   focusMode?: boolean;
   onToggleFocus?: () => void;
@@ -258,6 +269,12 @@ export default function Preview({
           <div className="ml-1">
             <ThemePanel files={files} onChange={onThemeChange} />
           </div>
+        )}
+        {tab === "preview" && paths.length > 0 && onFilesChange && !editDisabled && (
+          <SectionsPanel files={files} onFilesChange={onFilesChange} />
+        )}
+        {tab === "preview" && paths.length > 0 && onSiteChange && (
+          <SitePanel files={files} projectName={projectName ?? ""} onChange={onSiteChange} />
         )}
         <div className="ml-auto flex items-center gap-1.5">
           <div className="flex items-center">
