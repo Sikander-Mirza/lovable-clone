@@ -169,12 +169,15 @@ export default function Preview({
   useEffect(() => {
     if (building && !wasBuilding.current) setInitialBuild(paths.length === 0);
     if (!building) setInitialBuild(false);
+    if (!building && wasBuilding.current) built.current = null; // rebuild once without the placeholders
     wasBuilding.current = !!building;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [building]);
 
   // Rebuild the preview document at most every 400ms. The timer is not reset by new chunks while
   // the AI streams, otherwise a steady stream of tokens would postpone the rebuild forever.
+  const buildingRef = useRef(building);
+  buildingRef.current = building;
   const latestFiles = useRef(files);
   latestFiles.current = files;
   const rebuildTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -189,10 +192,10 @@ export default function Preview({
       built.current = f;
       setError(null);
       setSel(null);
-      setDoc(buildPreviewDoc(f, readAppData(projectId)));
+      setDoc(buildPreviewDoc(f, readAppData(projectId), !!buildingRef.current));
     }, 400);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [files]);
+  }, [files, building]);
   useEffect(() => () => { if (rebuildTimer.current) clearTimeout(rebuildTimer.current); rebuildTimer.current = null; }, []);
 
   useEffect(() => {

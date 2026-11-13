@@ -103,7 +103,9 @@ function build(path) {
         filename: path,
       }).code;
     } catch (e) {
-      throw new Error(path + ": " + e.message);
+      // While the AI is still writing, one broken file must not take the whole page down.
+      if (!window.__PARTIAL__ || path === "/App.js") throw new Error(path + ": " + e.message);
+      code = "export default function Pending(){return null}";
     }
     code = code.replace(/(\\bfrom\\s*|\\bimport\\s*)(["'])(\\.{1,2}\\/[^"']+)\\2/g, (m, pre, q, spec) =>
       pre + q + build(resolve(path, spec)) + q
@@ -740,7 +742,8 @@ const STORAGE_SHIM = `
 
 export function buildPreviewDoc(
   files: Record<string, string>,
-  storage: Record<string, string> = {}
+  storage: Record<string, string> = {},
+  partial = false
 ): string {
   const safe = (s: string) => s.replace(/</g, "\\u003c");
   const theme = parseTheme(files);
@@ -764,7 +767,7 @@ export function buildPreviewDoc(
 <body>
 <div id="root"></div>
 ${whatsappWidget(site.whatsapp)}
-<script>window.__FILES__ = ${safe(JSON.stringify(files))};</script>
+<script>window.__PARTIAL__ = ${partial};window.__FILES__ = ${safe(JSON.stringify(files))};</script>
 <script>${EDITOR}</script>
 <script>${RUNNER}</script>
 </body>
