@@ -17,6 +17,7 @@ replacement text
 >>>>>>> REPLACE
 </edit>
 SEARCH must match the current file exactly (same whitespace) and must appear exactly once, so include a line or two of surrounding context; keep blocks small; an edit may contain several SEARCH/REPLACE blocks, applied in order. Never use both a file block and an edit block for the same path. To remove a file that is no longer used, write <delete path="/components/Old.js" /> (never delete /App.js or /theme.json). If an edit cannot be applied you will be told and must resend that file in full. Files you do not mention stay as they are.
+- Write files in this order so the user sees the site appear while you write: /theme.json first (if used), then /App.js (importing every section), then each section component in the order it appears on the page, top to bottom (header/hero first, footer last).
 - The entry point is /App.js and must \`export default\` a React component. Put other components in /components/*.js. Use .js extension for every file (JSX allowed).
 - Styling: Tailwind CSS utility classes are available (Tailwind CDN). Do not create CSS files unless needed.
 - Allowed packages: react, react-dom, lucide-react (icons), react-router-dom, framer-motion, recharts, date-fns. Nothing else. No network calls to private APIs; use mock data or localStorage for persistence.

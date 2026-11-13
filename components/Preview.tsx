@@ -378,13 +378,13 @@ export default function Preview({
       <div className="relative min-h-0 flex-1">
         {/* First build: keep the wireframe on top until the site is complete. Files arrive one by one
             and the page cannot render until they all exist, which would otherwise flash a blank page. */}
-        {paths.length > 0 && tab === "preview" && ((building && initialBuild) || !everReady) && (
+        {paths.length > 0 && tab === "preview" && !everReady && (
           <div className="absolute inset-0 z-20">
             <BuildingWireframe label={building ? "Designing and writing your site" : "Loading your preview"} />
           </div>
         )}
         {/* While the AI works on an existing site: a moving bar and a small status pill */}
-        {building && !initialBuild && paths.length > 0 && tab === "preview" && (
+        {building && everReady && paths.length > 0 && tab === "preview" && (
           <>
             <div className="progress-indeterminate absolute inset-x-0 top-0 z-20 !rounded-none" />
             <div className="rise pointer-events-none absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-[#0d0d14]/90 px-3 py-1 text-xs text-violet-100 shadow-lg backdrop-blur">
