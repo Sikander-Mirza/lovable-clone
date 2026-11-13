@@ -30,3 +30,19 @@ export function withStubs(files: Record<string, string>): Record<string, string>
   }
   return out;
 }
+
+/**
+ * When the AI writes the components before /App.js, there is no entry file yet. Builds a temporary
+ * one that stacks the finished components in the order they were written.
+ */
+export function withTempApp(files: Record<string, string>): Record<string, string> {
+  if ("/App.js" in files) return files;
+  const comps = Object.keys(files).filter((p) => /^\/components\/.+\.jsx?$/.test(p));
+  if (!comps.length) return files;
+  const imports = comps.map((p, i) => `import * as M${i} from ${JSON.stringify("." + p)};`).join("\n");
+  const list = comps.map((_, i) => `M${i}.default`).join(",");
+  return {
+    ...files,
+    "/App.js": `${imports}\nconst C=[${list}].filter(Boolean);\nexport default function App(){return <>{C.map((X,i)=><X key={i}/>)}</>}`,
+  };
+}

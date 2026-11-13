@@ -12,7 +12,7 @@ import GitHubSync from "@/components/GitHubSync";
 import DeployButton from "@/components/DeployButton";
 import { getProject, saveProject, type Message, type Project } from "@/lib/store";
 import { parseAssistant } from "@/lib/parse";
-import { withStubs } from "@/lib/partial";
+import { withStubs, withTempApp } from "@/lib/partial";
 import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt, staticFixPrompt } from "@/lib/prompt";
 import type { Issue } from "@/lib/validate";
 import { formatPlan, type Plan } from "@/lib/plan";
@@ -335,7 +335,7 @@ export default function ProjectPage() {
     if (openPath) delete done[openPath]; // don't compile half-written files
     // Completed edit blocks show up live too; ones that do not apply are ignored until the end.
     const merged = applyDeletes(applyEdits({ ...project.files, ...done }, restoreEdits(edits, assetTable.current)).files, deletes);
-    return withStubs(merged);
+    return withStubs(withTempApp(merged));
   }, [project, streaming]);
 
   if (!project) return null;

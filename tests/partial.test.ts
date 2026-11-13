@@ -12,3 +12,11 @@ test("missing local imports get an empty placeholder; existing ones are untouche
   assert.match(out["/components/Faq.js"], /Pending/);
   assert.deepEqual(Object.keys(out).sort(), ["/App.js", "/components/Faq.js", "/components/Hero.js"]);
 });
+
+import { withTempApp } from "../lib/partial";
+
+test("without /App.js a temporary one stacks the finished components in order", () => {
+  const out = withTempApp({ "/components/Nav.js": "x", "/components/Hero.js": "y", "/theme.json": "{}" });
+  assert.match(out["/App.js"], /\.\/components\/Nav\.js[\s\S]*\.\/components\/Hero\.js/);
+  assert.equal(withTempApp({ "/App.js": "real", "/components/A.js": "x" })["/App.js"], "real");
+});

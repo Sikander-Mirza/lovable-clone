@@ -173,19 +173,27 @@ export default function Preview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [building]);
 
-  // Rebuild the preview document shortly after files stop changing.
+  // Rebuild the preview document at most every 400ms. The timer is not reset by new chunks while
+  // the AI streams, otherwise a steady stream of tokens would postpone the rebuild forever.
+  const latestFiles = useRef(files);
+  latestFiles.current = files;
+  const rebuildTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!paths.length) return;
     if (built.current && sameFiles(files, built.current)) return;
-    const t = setTimeout(() => {
-      built.current = files;
+    if (rebuildTimer.current) return;
+    rebuildTimer.current = setTimeout(() => {
+      rebuildTimer.current = null;
+      const f = latestFiles.current;
+      if (built.current && sameFiles(f, built.current)) return;
+      built.current = f;
       setError(null);
       setSel(null);
-      setDoc(buildPreviewDoc(files, readAppData(projectId)));
+      setDoc(buildPreviewDoc(f, readAppData(projectId)));
     }, 400);
-    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files]);
+  useEffect(() => () => { if (rebuildTimer.current) clearTimeout(rebuildTimer.current); rebuildTimer.current = null; }, []);
 
   useEffect(() => {
     post({ type: "mode", on: editMode && !editDisabled });
@@ -378,7 +386,7 @@ export default function Preview({
       <div className="relative min-h-0 flex-1">
         {/* First build: keep the wireframe on top until the site is complete. Files arrive one by one
             and the page cannot render until they all exist, which would otherwise flash a blank page. */}
-        {paths.length > 0 && tab === "preview" && !everReady && (
+        {paths.length > 0 && tab === "preview" && (!everReady || (building && !!error)) && (
           <div className="absolute inset-0 z-20">
             <BuildingWireframe label={building ? "Designing and writing your site" : "Loading your preview"} />
           </div>
