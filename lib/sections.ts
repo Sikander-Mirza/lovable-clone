@@ -242,3 +242,13 @@ export default function Newsletter() {
     ),
   },
 ];
+
+/** Chat request that redesigns one section and leaves everything else alone. */
+export function regeneratePrompt(name: string, note: string): string {
+  const label = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+  const extra = note.trim() ? ` What to change: ${note.trim()}.` : " Give it a clearly different layout and composition than the current one, keeping the same content and brand.";
+  return (
+    `Redesign ONLY the "${label}" section (/components/${name}.js).${extra} ` +
+    `Keep the same file name and default export, the same copy unless asked, and the brand theme. Do not change any other file.`
+  );
+}

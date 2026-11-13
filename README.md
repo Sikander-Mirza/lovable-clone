@@ -122,3 +122,6 @@ Ideas: plan-then-build generation, sending only relevant files to the model (cos
 
 ## Site health report
 The **Health** button in the preview toolbar scores the site on SEO, accessibility, mobile and speed. It reads the code (`/site.json`, `/theme.json`, images, responsive classes) and measures the live preview at phone width (headings, alt text, button names, form labels, sideways scrolling). **Fix N things with AI** sends the failing checks to the chat as one request.
+
+## Redesign one section
+In the **Sections** panel every section has a ✨ button. Optionally say what to change, press **Redesign**, and the AI rewrites only that section's file.

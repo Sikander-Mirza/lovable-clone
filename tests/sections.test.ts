@@ -67,3 +67,13 @@ test("every library component compiles and uses only allowed imports and real ic
     assert.deepEqual(await validateProject(files), [], item.name);
   }
 });
+
+import { regeneratePrompt } from "../lib/sections";
+
+test("regeneratePrompt targets one file and keeps the rest untouched", () => {
+  const p = regeneratePrompt("OurStory", "more minimal");
+  assert.match(p, /"Our Story" section \(\/components\/OurStory\.js\)/);
+  assert.match(p, /more minimal/);
+  assert.match(p, /Do not change any other file/);
+  assert.match(regeneratePrompt("Hero", ""), /different layout/);
+});

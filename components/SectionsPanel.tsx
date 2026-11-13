@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Eye, EyeOff, LayoutList, Plus, Trash2 } from "lucide-react";
-import { LIBRARY, insertSection, listSections, moveSection, removeSection, toggleSection } from "@/lib/sections";
+import { ArrowDown, ArrowUp, Eye, EyeOff, LayoutList, Plus, Sparkles, Trash2 } from "lucide-react";
+import { LIBRARY, insertSection, listSections, moveSection, regeneratePrompt, removeSection, toggleSection } from "@/lib/sections";
 
 const human = (n: string) => n.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
 
@@ -10,10 +10,14 @@ const human = (n: string) => n.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
 export default function SectionsPanel({
   files,
   onFilesChange,
+  onAskAI,
 }: {
   files: Record<string, string>;
   onFilesChange: (files: Record<string, string>) => void;
+  onAskAI?: (prompt: string) => void;
 }) {
+  const [regen, setRegen] = useState<string | null>(null);
+  const [note, setNote] = useState("");
   const [open, setOpen] = useState(false);
   const [alignRight, setAlignRight] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -66,11 +70,24 @@ export default function SectionsPanel({
                 {sections.map((s, i) => (
                   <li
                     key={s.name}
-                    className={`flex items-center gap-1 rounded-lg border px-2 py-1 ${
+                    className={`rounded-lg border px-2 py-1 ${
                       s.hidden ? "border-white/5 opacity-50" : "border-white/10 bg-white/[.03]"
                     }`}
                   >
+                   <div className="flex items-center gap-1">
                     <span className="min-w-0 flex-1 truncate text-xs">{human(s.name)}</span>
+                    {onAskAI && (
+                      <button
+                        onClick={() => {
+                          setRegen(regen === s.name ? null : s.name);
+                          setNote("");
+                        }}
+                        className={`icon-btn h-6 w-6 ${regen === s.name ? "text-violet-300" : ""}`}
+                        title="Redesign this section with AI"
+                      >
+                        <Sparkles size={12} />
+                      </button>
+                    )}
                     <button onClick={() => setApp(moveSection(app, s.name, -1))} disabled={i === 0} className="icon-btn h-6 w-6" title="Move up">
                       <ArrowUp size={12} />
                     </button>
@@ -92,6 +109,29 @@ export default function SectionsPanel({
                     >
                       <Trash2 size={12} />
                     </button>
+                   </div>
+                   {regen === s.name && onAskAI && (
+                    <form
+                      className="mt-1.5 flex gap-1 pb-0.5"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        setOpen(false);
+                        setRegen(null);
+                        onAskAI(regeneratePrompt(s.name, note));
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="What to change? (optional)"
+                        className="field h-7 min-w-0 flex-1 text-xs"
+                      />
+                      <button type="submit" className="btn-primary h-7 px-2 text-xs">
+                        Redesign
+                      </button>
+                    </form>
+                   )}
                   </li>
                 ))}
               </ol>

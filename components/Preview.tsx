@@ -346,7 +346,7 @@ export default function Preview({
           </div>
         )}
         {tab === "preview" && paths.length > 0 && onFilesChange && !editDisabled && (
-          <SectionsPanel files={files} onFilesChange={onFilesChange} />
+          <SectionsPanel files={files} onFilesChange={onFilesChange} onAskAI={onAskAI} />
         )}
         {tab === "preview" && paths.length > 0 && onSiteChange && (
           <SitePanel files={files} projectName={projectName ?? ""} onChange={onSiteChange} />
