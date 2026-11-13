@@ -118,7 +118,7 @@ function build(path) {
 window.addEventListener("error", (e) => showError(e.message));
 window.addEventListener("unhandledrejection", (e) => showError(e.reason && e.reason.message || e.reason));
 
-(async () => {
+async function run() {
   try {
     const entry = "/App.js" in files ? "/App.js" : Object.keys(files).find((f) => /\\.jsx?$/.test(f));
     if (!entry) return;
@@ -127,13 +127,30 @@ window.addEventListener("unhandledrejection", (e) => showError(e.reason && e.rea
       "import React from 'react';import {createRoot} from 'react-dom/client';import App from " +
       JSON.stringify(appUrl) +
       ";class EB extends React.Component{constructor(p){super(p);this.state={e:null}}static getDerivedStateFromError(e){return{e}}render(){if(this.state.e){window.dispatchEvent(new ErrorEvent('error',{message:String(this.state.e&&this.state.e.stack||this.state.e)}));return null}return this.props.children}}" +
-      "createRoot(document.getElementById('root')).render(React.createElement(EB,null,React.createElement(App)));";
+      "const root=window.__lvRoot||(window.__lvRoot=createRoot(document.getElementById('root')));" +
+      "root.render(React.createElement(EB,null,React.createElement(App)));";
     await import(URL.createObjectURL(new Blob([main], { type: "text/javascript" })));
     parent.postMessage({ type: "preview-ready" }, "*");
   } catch (e) {
     showError(e && e.message || e);
   }
-})();
+}
+run();
+parent.postMessage({ type: "preview-shell" }, "*");
+
+// Live updates while the AI is writing: swap the files and re-render in place, so the page never reloads (no white flash).
+window.addEventListener("message", (e) => {
+  const d = e.data;
+  if (e.source !== parent || !d || d.type !== "hot") return;
+  for (const k of Object.keys(files)) delete files[k];
+  Object.assign(files, d.files);
+  for (const k of Object.keys(blobs)) delete blobs[k];
+  for (const k of Object.keys(busy)) delete busy[k];
+  window.__PARTIAL__ = !!d.partial;
+  const err = document.getElementById("__err");
+  if (err) err.remove();
+  run();
+});
 `;
 
 // Visual editor running inside the preview iframe. Every host JSX element gets a

@@ -167,15 +167,30 @@ export default function Preview({
 
   // Remember whether a run started on an empty project; clear it when the run ends.
   useEffect(() => {
-    if (building && !wasBuilding.current) setInitialBuild(paths.length === 0);
+    if (building && !wasBuilding.current) {
+      setInitialBuild(paths.length === 0);
+      // Start loading Tailwind, Babel and React now, while the AI is still writing, so finished sections can appear at once.
+      if (paths.length === 0 && !built.current) {
+        built.current = {};
+        readyRef.current = false;
+        shellAt.current = Date.now();
+        setDoc(buildPreviewDoc({}, readAppData(projectId), true));
+      }
+    }
     if (!building) setInitialBuild(false);
-    if (!building && wasBuilding.current) built.current = null; // rebuild once without the placeholders
+    if (!building && wasBuilding.current) {
+      built.current = null; // one more update without the placeholders
+      endHot.current = true;
+    }
     wasBuilding.current = !!building;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [building]);
 
   // Rebuild the preview document at most every 400ms. The timer is not reset by new chunks while
   // the AI streams, otherwise a steady stream of tokens would postpone the rebuild forever.
+  const readyRef = useRef(false);
+  const shellAt = useRef(0);
+  const endHot = useRef(false);
   const buildingRef = useRef(building);
   buildingRef.current = building;
   const latestFiles = useRef(files);
@@ -185,15 +200,30 @@ export default function Preview({
     if (!paths.length) return;
     if (built.current && sameFiles(files, built.current)) return;
     if (rebuildTimer.current) return;
-    rebuildTimer.current = setTimeout(() => {
+    const fire = () => {
       rebuildTimer.current = null;
       const f = latestFiles.current;
       if (built.current && sameFiles(f, built.current)) return;
+      // The empty page started at the beginning of the build is still loading its libraries: wait for it instead of reloading.
+      if (buildingRef.current && shellAt.current && !readyRef.current && Date.now() - shellAt.current < 30000) {
+        rebuildTimer.current = setTimeout(fire, 500);
+        return;
+      }
       built.current = f;
+      // While the AI writes (and for the final update) swap the files inside the running page instead of reloading it.
+      if ((buildingRef.current || endHot.current) && readyRef.current && frame.current?.contentWindow) {
+        endHot.current = false;
+        post({ type: "hot", files: f, partial: !!buildingRef.current });
+        return;
+      }
+      endHot.current = false;
+      readyRef.current = false;
+      shellAt.current = 0;
       setError(null);
       setSel(null);
       setDoc(buildPreviewDoc(f, readAppData(projectId), !!buildingRef.current));
-    }, 400);
+    };
+    rebuildTimer.current = setTimeout(fire, 400);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files, building]);
   useEffect(() => () => { if (rebuildTimer.current) clearTimeout(rebuildTimer.current); rebuildTimer.current = null; }, []);
@@ -231,6 +261,11 @@ export default function Preview({
       // Only trust messages from our own preview iframe.
       if (e.source !== frame.current?.contentWindow) return;
       const d = e.data;
+      if (d?.type === "preview-shell") readyRef.current = true;
+      if (d?.type === "preview-ready") {
+        readyRef.current = true;
+        setError(null);
+      }
       if (d?.type === "preview-ready" || d?.type === "preview-error") setEverReady(true);
       if (d?.type === "preview-ready") {
         post({ type: "mode", on: editModeRef.current });
@@ -389,7 +424,7 @@ export default function Preview({
       <div className="relative min-h-0 flex-1">
         {/* First build: keep the wireframe on top until the site is complete. Files arrive one by one
             and the page cannot render until they all exist, which would otherwise flash a blank page. */}
-        {paths.length > 0 && tab === "preview" && (!everReady || (building && !!error)) && (
+        {(paths.length > 0 || building) && tab === "preview" && (!everReady || (building && !!error)) && (
           <div className="absolute inset-0 z-20">
             <BuildingWireframe label={building ? "Designing and writing your site" : "Loading your preview"} />
           </div>
@@ -403,7 +438,7 @@ export default function Preview({
             </div>
           </>
         )}
-        {!paths.length ? (
+        {!paths.length && !(building && doc) ? (
           building ? (
             <BuildingWireframe />
           ) : (
