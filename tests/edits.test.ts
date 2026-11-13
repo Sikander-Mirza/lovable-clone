@@ -56,3 +56,12 @@ test("a half-streamed edit is hidden from the prose and reported as open", () =>
   assert.equal(r.text, "On it.");
   assert.deepEqual(r.edits, []);
 });
+
+test("an edit whose indentation is slightly off still applies when it matches exactly one place", () => {
+  const files = { "/a.js": "function A() {\n    return (\n      <div>\n        <h1>Hi</h1>\n      </div>\n    );\n}" };
+  const r = applyEdits(files, [{ path: "/a.js", blocks: [{ search: "<div>\n<h1>Hi</h1>", replace: "<div>\n<h1>Hello</h1>" }] }]);
+  assert.equal(r.failures.length, 0);
+  assert.match(r.files["/a.js"], /<h1>Hello<\/h1>/);
+  const twice = { "/b.js": "<p>x</p>\n  <p>x</p>" };
+  assert.equal(applyEdits(twice, [{ path: "/b.js", blocks: [{ search: "  <p>x</p>  ", replace: "y" }] }]).failures.length, 1);
+});

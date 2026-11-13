@@ -112,7 +112,18 @@ function build(path) {
     );
   }
   busy[path] = false;
-  return (blobs[path] = URL.createObjectURL(new Blob([code], { type: "text/javascript" })));
+  const real = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+  if (window.__PARTIAL__ && path !== "/App.js" && /\\.jsx?$/.test(path)) {
+    // While the AI is still writing, a section that crashes at runtime shows nothing instead of taking the page down.
+    const proxy =
+      "import * as M from " + JSON.stringify(real) + ";import React from 'react';" +
+      "class B extends React.Component{constructor(p){super(p);this.state={e:false}}static getDerivedStateFromError(){return{e:true}}render(){return this.state.e?null:this.props.children}}" +
+      "export * from " + JSON.stringify(real) + ";" +
+      "const D=M.default;function W(p){return React.createElement(B,null,React.createElement(D,p))}" +
+      "export default typeof D==='function'?W:D;";
+    return (blobs[path] = URL.createObjectURL(new Blob([proxy], { type: "text/javascript" })));
+  }
+  return (blobs[path] = real);
 }
 
 window.addEventListener("error", (e) => showError(e.message));

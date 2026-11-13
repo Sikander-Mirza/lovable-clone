@@ -27,6 +27,33 @@ function countOccurrences(hay: string, needle: string): number {
   return n;
 }
 
+/**
+ * Fallback when the exact text is not found: compare line by line ignoring indentation and
+ * trailing spaces (models often get the whitespace wrong). Returns the character range of the
+ * one matching window, or null when there is no match or more than one.
+ */
+function fuzzyRange(text: string, search: string): [number, number] | null {
+  const want = search.split("\n").map((l) => l.trim());
+  while (want.length && !want[0]) want.shift();
+  while (want.length && !want[want.length - 1]) want.pop();
+  if (!want.length) return null;
+  const lines = text.split("\n");
+  const starts: number[] = [];
+  let off = 0;
+  for (const l of lines) {
+    starts.push(off);
+    off += l.length + 1;
+  }
+  const hits: [number, number][] = [];
+  for (let i = 0; i + want.length <= lines.length; i++) {
+    if (want.every((w, j) => lines[i + j].trim() === w)) {
+      const last = i + want.length - 1;
+      hits.push([starts[i], starts[last] + lines[last].length]);
+    }
+  }
+  return hits.length === 1 ? hits[0] : null;
+}
+
 /** Applies edits in order. A file whose edit fails is left untouched (all or nothing per file). */
 export function applyEdits(
   files: Record<string, string>,
@@ -50,6 +77,11 @@ export function applyEdits(
     for (const [i, b] of edit.blocks.entries()) {
       const n = countOccurrences(text, b.search);
       if (n === 0) {
+        const r = fuzzyRange(text, b.search);
+        if (r) {
+          text = text.slice(0, r[0]) + b.replace + text.slice(r[1]);
+          continue;
+        }
         failure = `block ${i + 1}: SEARCH text was not found (it must match the current file exactly, including whitespace)`;
         break;
       }
