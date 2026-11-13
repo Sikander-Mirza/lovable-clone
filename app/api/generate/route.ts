@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { SYSTEM_PROMPT, filesContext } from "@/lib/prompt";
 import { guardRequest } from "@/lib/guard";
+import { logGeneration, type Attempt } from "@/lib/telemetry";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
   // Attach the current project files to the latest user turn.
   const msgs: OpenAI.Chat.ChatCompletionMessageParam[] = messages.map((m, i) => {
     if (i === messages.length - 1 && m.role === "user") {
-      const text = `${filesContext(files)}\n\nRequest: ${m.content}`;
+      const text = `${filesContext(files, m.content)}\n\nRequest: ${m.content}`;
       if (!m.images?.length) return { role: "user", content: text };
       return {
         role: "user",
@@ -93,6 +94,12 @@ export async function POST(req: Request) {
       let lastError: any = null;
       const deadProviders = new Set<string>(); // providers whose key was rejected
       const t0 = Date.now();
+      // For telemetry (lib/telemetry.ts)
+      const attemptsLog: Attempt[] = [];
+      let outChars = 0;
+      let served: { provider: string; model: string } | null = null;
+      let firstTokenMs: number | undefined;
+      let errorText: string | undefined;
       try {
         for (const { client, model, provider } of targets) {
           if (deadProviders.has(provider)) continue;
@@ -114,17 +121,22 @@ export async function POST(req: Request) {
                 if (!started) {
                   started = true;
                   clearTimeout(timer); // got the first token: no more stall timeout
-                  console.log(`[generate] ${provider}/${model} first token after ${Date.now() - t0}ms`);
+                  firstTokenMs = Date.now() - t0;
+                  served = { provider, model };
+                  console.log(`[generate] ${provider}/${model} first token after ${firstTokenMs}ms`);
                 }
+                outChars += t.length;
                 controller.enqueue(encoder.encode(t));
               }
               clearTimeout(timer);
               if (started) return;
+              attemptsLog.push({ provider, model, status: "empty" });
               lastError = new Error("The model returned an empty response.");
             } catch (e: any) {
               clearTimeout(timer);
               lastError = e;
               if (started) throw e; // mid-stream failure: can't switch models without duplicating text
+              attemptsLog.push({ provider, model, status: String(e?.status ?? e?.name ?? "error") });
               console.warn(`[generate] ${provider}/${model} failed: ${e?.status ?? e?.name ?? "error"} ${String(e?.message ?? "").slice(0, 100)}`);
               if (e?.status === 401 || e?.status === 403) {
                 deadProviders.add(provider); // this provider's key is rejected: try the next provider
@@ -138,9 +150,31 @@ export async function POST(req: Request) {
         }
         if (!started) throw lastError ?? new Error("Generation failed.");
       } catch (e: any) {
-        controller.enqueue(encoder.encode(`${started ? "\n\n" : ""}[error] ${friendly(e)}`));
+        errorText = friendly(e);
+        try {
+          controller.enqueue(encoder.encode(`${started ? "\n\n" : ""}[error] ${errorText}`));
+        } catch {
+          /* the client already disconnected */
+        }
       } finally {
-        controller.close();
+        logGeneration({
+          ts: new Date().toISOString(),
+          ok: started && !errorText,
+          provider: served?.provider,
+          model: served?.model,
+          firstTokenMs,
+          totalMs: Date.now() - t0,
+          outChars,
+          inChars: JSON.stringify(msgs).length,
+          hadImages: hasImages,
+          attempts: attemptsLog,
+          error: errorText,
+        });
+        try {
+          controller.close();
+        } catch {
+          /* already closed or cancelled by the client */
+        }
       }
     },
   });

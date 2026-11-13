@@ -95,6 +95,12 @@ Generated forms save with `import { submitForm } from "lovable"`. In the preview
 - **Evals** (`npm run eval`, `evals/prompts.json`): runs fixed prompts through the real pipeline and scores compile errors, size, structure, theme use and approved photos (plus informational design-direction and generic-pattern counts). Results are saved in `evals/results/` (ignored by git). Use `-- --only coffee,saas` or `-- --limit 3`. It uses AI quota, and the score is a rough heuristic, not a verdict on design quality.
 - **Design direction:** the core system prompt makes the AI choose a specific visual direction for each business and avoid generic patterns (see `DESIGN DIRECTION` in `lib/prompt.ts`; a test keeps it in place).
 
+## Telemetry, context size and CI
+- **Telemetry** (`lib/telemetry.ts`): every `/api/generate` call appends one JSON line to `.data/generations.jsonl` (git-ignored): who answered, first-token and total time, output size, context size, and every failed attempt. `npm run stats` summarizes success rate, fallback rate, p50/p90 latency per model and the most common errors. On read-only hosts logging silently does nothing.
+- **Smaller requests** (`lib/context.ts`): projects up to ~60k characters are sent whole. Larger ones send `/App.js`, `/theme.json` and the files the request is about (exact path or component name first, then keyword matches; site-wide requests like "improve mobile" show as many small files as fit). The rest are listed with their sizes and the model is told not to edit them from memory.
+- **Scope rule:** tiny tools (counter, calculator, to-do...) are generated compact; the large size targets apply only to full websites.
+- **CI:** `.github/workflows/ci.yml` runs typecheck, tests and a production build on every push and pull request.
+
 ## Tests
 `npm test` runs 18 tests (parser, asset placeholders, ZIP structure and CRCs, theme, questionnaire, suggestions, rate limit/auth guard, export, encrypted sessions). The visual-editor engine runs inside the preview iframe and is covered by manual/browser checks rather than these tests. To run a production build while `next dev` is running: `NEXT_DIST_DIR=.next-build npm run build`.
 
