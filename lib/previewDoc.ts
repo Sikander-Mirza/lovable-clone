@@ -149,8 +149,20 @@ window.addEventListener("message", (e) => {
   window.__PARTIAL__ = !!d.partial;
   const err = document.getElementById("__err");
   if (err) err.remove();
-  run();
+  run().then(() => setTimeout(() => followBuild(!!d.partial), 250));
 });
+
+// While the AI builds, follow the newest section; stop as soon as the person scrolls themselves.
+let userScrolled = false;
+["wheel", "touchmove", "keydown"].forEach((t) => window.addEventListener(t, () => { userScrolled = true; }, { passive: true }));
+function followBuild(partial) {
+  if (!partial) { if (!userScrolled) window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+  if (userScrolled) return;
+  const parts = Array.from(document.querySelectorAll("#root section, #root header, #root footer, #root nav")).filter((el) => el.offsetHeight > 40);
+  const last = parts[parts.length - 1];
+  if (last) last.scrollIntoView({ behavior: "smooth", block: "start" });
+  else window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+}
 `;
 
 // Visual editor running inside the preview iframe. Every host JSX element gets a
