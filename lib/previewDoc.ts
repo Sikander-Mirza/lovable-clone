@@ -645,9 +645,41 @@ const EDITOR = String.raw`
   }, true);
   document.addEventListener("submit", function (e) { if (mode) e.preventDefault(); }, true);
 
+  // Measurements for the health report (headings, alt text, names, labels, sideways scroll).
+  function probe() {
+    var prev = 0, skips = 0;
+    Array.prototype.forEach.call(document.querySelectorAll("h1,h2,h3,h4,h5,h6"), function (h) {
+      var n = parseInt(h.tagName.charAt(1), 10);
+      if (prev && n > prev + 1) skips++;
+      prev = n;
+    });
+    var imgs = document.querySelectorAll("img"), noAlt = 0;
+    Array.prototype.forEach.call(imgs, function (i) { if (!i.hasAttribute("alt")) noAlt++; });
+    function named(el) {
+      return (el.textContent || "").trim() || el.getAttribute("aria-label") || el.getAttribute("aria-labelledby") ||
+        el.getAttribute("title") || el.querySelector("img[alt]:not([alt=''])");
+    }
+    var noName = 0;
+    Array.prototype.forEach.call(document.querySelectorAll("button, a[href]"), function (el) { if (!named(el)) noName++; });
+    var noLabel = 0;
+    Array.prototype.forEach.call(document.querySelectorAll("input, select, textarea"), function (el) {
+      var t = (el.getAttribute("type") || "").toLowerCase();
+      if (t === "hidden" || t === "submit" || t === "button") return;
+      var labelled = el.getAttribute("aria-label") || el.getAttribute("aria-labelledby") ||
+        (el.id && document.querySelector('label[for="' + el.id + '"]')) || el.closest("label");
+      if (!labelled) noLabel++;
+    });
+    return {
+      h1Count: document.querySelectorAll("h1").length, headingSkips: skips,
+      imgsTotal: imgs.length, imgsNoAlt: noAlt, buttonsNoName: noName, inputsNoLabel: noLabel,
+      scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth
+    };
+  }
+
   window.addEventListener("message", function (e) {
     if (e.source !== parent) return;
     var m = e.data || {};
+    if (m.type === "health") { send({ type: "health-result", id: m.id, probe: probe() }); return; }
     if (m.type === "mode") {
       mode = !!m.on;
       if (!mode) { if (editing) finishEdit(); sel = null; hoverEl = null; send({ type: "select", id: null }); }

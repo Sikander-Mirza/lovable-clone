@@ -23,6 +23,8 @@ import EditBar, { type Selection } from "./EditBar";
 import ThemePanel from "./ThemePanel";
 import SitePanel from "./SitePanel";
 import SectionsPanel from "./SectionsPanel";
+import HealthPanel from "./HealthPanel";
+import type { Probe } from "@/lib/health";
 import type { SiteSettings } from "@/lib/site";
 import SubmissionsPanel from "./SubmissionsPanel";
 import BuildingWireframe from "./BuildingWireframe";
@@ -56,6 +58,7 @@ export default function Preview({
   onThemeChange,
   onSiteChange,
   onFilesChange,
+  onAskAI,
   projectName,
   focusMode,
   onToggleFocus,
@@ -80,6 +83,8 @@ export default function Preview({
   onSiteChange?: (site: SiteSettings) => void;
   /** Called with the whole new file set when sections are reordered, hidden, removed or added. */
   onFilesChange?: (files: Record<string, string>) => void;
+  /** Sends a request to the AI as if the user had typed it (used by the health report). */
+  onAskAI?: (prompt: string) => void;
   projectName?: string;
   /** Full preview mode (chat and top bar hidden). */
   focusMode?: boolean;
@@ -135,6 +140,30 @@ export default function Preview({
   editModeRef.current = editMode && !editDisabled;
 
   const post = (msg: object) => frame.current?.contentWindow?.postMessage(msg, "*");
+
+  // Health report: measure the running preview at phone width, then restore the device.
+  const runProbe = async (): Promise<Probe | null> => {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const before = device;
+    setDevice("mobile");
+    await sleep(1100); // let the narrower layout settle
+    const id = Math.random().toString(36).slice(2);
+    const result = await new Promise<Probe | null>((resolve) => {
+      const done = (v: Probe | null) => {
+        clearTimeout(timer);
+        window.removeEventListener("message", onMsg);
+        resolve(v);
+      };
+      const onMsg = (e: MessageEvent) => {
+        if (e.source === frame.current?.contentWindow && e.data?.type === "health-result" && e.data.id === id) done(e.data.probe);
+      };
+      const timer = setTimeout(() => done(null), 5000);
+      window.addEventListener("message", onMsg);
+      post({ type: "health", id });
+    });
+    setDevice(before);
+    return result;
+  };
 
   // Remember whether a run started on an empty project; clear it when the run ends.
   useEffect(() => {
@@ -237,7 +266,7 @@ export default function Preview({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-white/[.08] bg-[#0a0a10] px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-white/[.08] bg-[#0a0a10] px-3 py-2">
         <div className="seg">
           {(
             [
@@ -275,6 +304,9 @@ export default function Preview({
         )}
         {tab === "preview" && paths.length > 0 && onSiteChange && (
           <SitePanel files={files} projectName={projectName ?? ""} onChange={onSiteChange} />
+        )}
+        {tab === "preview" && paths.length > 0 && onAskAI && !editDisabled && (
+          <HealthPanel files={files} runProbe={runProbe} onAskAI={onAskAI} />
         )}
         <div className="ml-auto flex items-center gap-1.5">
           <div className="flex items-center">

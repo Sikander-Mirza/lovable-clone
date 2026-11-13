@@ -587,6 +587,7 @@ export default function ProjectPage() {
           onThemeChange={onThemeChange}
           onSiteChange={onSiteChange}
           onFilesChange={onFilesChange}
+          onAskAI={(prompt) => send(prompt, [])}
           projectName={project.name}
           building={busy || planning}
           focusMode={focus}
