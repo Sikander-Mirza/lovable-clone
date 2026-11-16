@@ -185,6 +185,7 @@ export default function Chat({
                       .filter((s) => s.include)
                       .map((s, j) => (
                         <span key={j} className="rounded bg-white/15 px-1.5 py-0.5 text-[10px]">
+                          {m.plan!.pages.length > 1 && s.page ? `${s.page}: ` : ""}
                           {s.title}
                         </span>
                       ))}

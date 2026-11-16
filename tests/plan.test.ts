@@ -51,3 +51,34 @@ test("the formatted plan lists only included sections, in order, with theme and 
   assert.match(text, /Layout: Map beside opening hours/);
   assert.match(text, /Do not add sections/);
 });
+
+const multiRaw = JSON.stringify({
+  kind: "site",
+  direction: "Warm bakery.",
+  brand: "#b45309",
+  pages: ["Home", "Menu", "About"],
+  sections: [
+    { page: "Home", title: "Hero", layout: "split" },
+    { page: "Home", title: "Highlights", layout: "list" },
+    { page: "menu", title: "Bread", layout: "table" },
+    { page: "Nowhere", title: "Story", layout: "timeline" },
+  ],
+});
+
+test("multi-page plans keep a page per section and fall back to the first page", () => {
+  const p = parsePlan(multiRaw)!;
+  assert.deepEqual(p.sections.map((s) => s.page), ["Home", "Home", "Menu", "Home"]);
+});
+
+test("single-page plans have no page on sections", () => {
+  const p = parsePlan(JSON.stringify({ kind: "site", pages: ["Home"], sections: [{ title: "A" }, { title: "B" }, { title: "C" }] }))!;
+  assert.ok(p.sections.every((s) => s.page === undefined));
+});
+
+test("a multi-page plan is formatted per page with routes and components", () => {
+  const text = formatPlan(parsePlan(multiRaw)!);
+  assert.match(text, /MULTI-PAGE/);
+  assert.match(text, /Page "Home" \(route \/, component \/pages\/Home\.js\)/);
+  assert.match(text, /Page "Menu" \(route \/menu, component \/pages\/Menu\.js\)/);
+  assert.ok(text.indexOf("Bread") > text.indexOf('Page "Menu"'));
+});

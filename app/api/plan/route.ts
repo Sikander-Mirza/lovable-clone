@@ -18,11 +18,11 @@ Respond with ONLY a JSON object (no markdown) of this shape:
   "headingFont": "one of the same list",
   "pages": ["Home"],
   "sections": [
-    { "title": "short name", "purpose": "one line", "layout": "one concrete layout idea, different from the other sections", "content": "one line: the real, specific content it holds" }
+    { "page": "exact name from pages (only when there are several pages)", "title": "short name", "purpose": "one line", "layout": "one concrete layout idea, different from the other sections", "content": "one line: the real, specific content it holds" }
   ],
   "features": ["interactive things it needs, e.g. booking form"]
 }
-Rules: 6 to 9 sections for a website, in page order, each with a different layout idea. Use Cairo or Noto Nastaliq Urdu for Arabic/Urdu sites. Write title/purpose/layout/content in the language the user wrote in.
+Rules: if the user asks for separate pages (Home, About, Menu, Contact...), list them in "pages" (2 to 6 names, Home first) and give EVERY section a "page"; plan 2 to 6 sections per page (Home 5 to 7), each page with its own sections, and no Navbar or Footer sections (they are shared). Otherwise use pages ["Home"] and 6 to 9 sections for the whole site. Sections go in page order, each with a different layout idea. Use Cairo or Noto Nastaliq Urdu for Arabic/Urdu sites. Write title/purpose/layout/content in the language the user wrote in.
 If the request is a small single-purpose tool (counter, calculator, timer, converter, to-do, quiz...) respond with exactly {"kind":"tool"}.`;
 
 export async function POST(req: Request) {

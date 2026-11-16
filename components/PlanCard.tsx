@@ -2,7 +2,7 @@
 
 import { ArrowDown, ArrowUp, ClipboardList, Loader2, Plus, RefreshCw } from "lucide-react";
 import { FONTS } from "@/lib/theme";
-import type { Plan, PlanSection } from "@/lib/plan";
+import { MAX_SECTIONS, MAX_SECTIONS_MULTI, type Plan, type PlanSection } from "@/lib/plan";
 
 /** The AI's plan for the site, editable before anything is built. */
 export default function PlanCard({
@@ -22,8 +22,13 @@ export default function PlanCard({
 }) {
   const setSection = (i: number, patch: Partial<PlanSection>) =>
     onChange({ ...plan, sections: plan.sections.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
+  const multi = plan.pages.length > 1;
+  const pageOf = (s: PlanSection) => s.page || plan.pages[0];
+  const max = multi ? MAX_SECTIONS_MULTI : MAX_SECTIONS;
+  // Moves a section past its neighbour on the same page (the whole list when single-page).
   const move = (i: number, d: -1 | 1) => {
-    const j = i + d;
+    let j = i + d;
+    while (multi && j >= 0 && j < plan.sections.length && pageOf(plan.sections[j]) !== pageOf(plan.sections[i])) j += d;
     if (j < 0 || j >= plan.sections.length) return;
     const next = [...plan.sections];
     [next[i], next[j]] = [next[j], next[i]];
@@ -84,10 +89,33 @@ export default function PlanCard({
 
       <div>
         <div className="mb-1 text-[11px] uppercase tracking-wide text-white/40">
-          Sections ({included} of {plan.sections.length})
+          {multi ? `${plan.pages.length} pages · ` : ""}Sections ({included} of {plan.sections.length})
         </div>
+        {(multi ? plan.pages : [""]).map((page) => (
+        <div key={page} className={multi ? "mb-2" : ""}>
+        {multi && (
+          <div className="mb-1 mt-1 flex items-center gap-1.5 text-[11px] font-medium text-violet-200">
+            <span className="rounded bg-violet-500/20 px-1.5 py-0.5">{page}</span>
+            <button
+              onClick={() =>
+                onChange({
+                  ...plan,
+                  sections: [
+                    ...plan.sections,
+                    { title: "New section", purpose: "", layout: "", content: "", include: true, page },
+                  ],
+                })
+              }
+              disabled={plan.sections.length >= max}
+              className="ml-auto flex items-center gap-1 text-[11px] text-white/50 hover:text-white disabled:opacity-40"
+            >
+              <Plus size={11} /> Add
+            </button>
+          </div>
+        )}
         <ol className="space-y-1.5">
-          {plan.sections.map((s, i) => (
+          {plan.sections.map((s, i) =>
+            multi && pageOf(s) !== page ? null : (
             <li
               key={i}
               className={`rounded-lg border p-2 transition ${
@@ -126,20 +154,25 @@ export default function PlanCard({
                 className={`${small} mt-1.5 w-full text-white/70`}
               />
             </li>
-          ))}
+            )
+          )}
         </ol>
-        <button
-          onClick={() =>
-            onChange({
-              ...plan,
-              sections: [...plan.sections, { title: "New section", purpose: "", layout: "", content: "", include: true }],
-            })
-          }
-          disabled={plan.sections.length >= 12}
-          className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 py-1.5 text-xs text-white/55 hover:border-violet-400/50 hover:text-white disabled:opacity-40"
-        >
-          <Plus size={12} /> Add a section
-        </button>
+        </div>
+        ))}
+        {!multi && (
+          <button
+            onClick={() =>
+              onChange({
+                ...plan,
+                sections: [...plan.sections, { title: "New section", purpose: "", layout: "", content: "", include: true }],
+              })
+            }
+            disabled={plan.sections.length >= max}
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 py-1.5 text-xs text-white/55 hover:border-violet-400/50 hover:text-white disabled:opacity-40"
+          >
+            <Plus size={12} /> Add a section
+          </button>
+        )}
       </div>
 
       {plan.features.length > 0 && (
