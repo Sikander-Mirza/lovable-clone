@@ -128,3 +128,6 @@ In the **Sections** panel every section has a ✨ button. Optionally say what to
 
 ## Urdu, Arabic and right-to-left
 Pick a language in **Site**. Urdu, Arabic, Persian and Hebrew set `dir="rtl"` and load a matching script font (Noto Nastaliq Urdu, Noto Sans Arabic...), in the preview and in the exported site. **Translate the site to ...** asks the AI to rewrite all text in that language.
+
+## Multi-page sites
+Ask for separate pages ("Home, Menu, About and Contact pages") and the AI uses react-router with one file per page in `/pages`. A page dropdown appears in the preview toolbar to jump between pages; the exported site keeps real routing.

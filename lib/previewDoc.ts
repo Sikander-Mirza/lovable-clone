@@ -15,7 +15,22 @@ const RR = "https://esm.sh/react-router-dom@6.28.0?external=react,react-dom";
 const RR_SHIM =
   "data:text/javascript," +
   encodeURIComponent(
-    `export * from "${RR}"; export { MemoryRouter as BrowserRouter, MemoryRouter as HashRouter } from "${RR}";`
+    `import React from "react";
+import { MemoryRouter, useNavigate, useLocation } from "${RR}";
+export * from "${RR}";
+function Bridge() {
+  const nav = useNavigate();
+  const loc = useLocation();
+  React.useEffect(() => {
+    const on = (e) => { if (e.data && e.data.type === "goto") nav(e.data.path); };
+    addEventListener("message", on);
+    return () => removeEventListener("message", on);
+  }, [nav]);
+  React.useEffect(() => { parent.postMessage({ type: "route", path: loc.pathname }, "*"); }, [loc.pathname]);
+  return null;
+}
+function Router(p) { return React.createElement(MemoryRouter, p, React.createElement(Bridge), p.children); }
+export { Router as BrowserRouter, Router as HashRouter };`
   );
 
 // `import { submitForm } from "lovable"` in generated code. In the preview it asks the

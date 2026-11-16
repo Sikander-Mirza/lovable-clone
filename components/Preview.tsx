@@ -21,6 +21,7 @@ import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
 import ThemePanel from "./ThemePanel";
+import { listRoutes } from "@/lib/routes";
 import SitePanel from "./SitePanel";
 import SectionsPanel from "./SectionsPanel";
 import HealthPanel from "./HealthPanel";
@@ -128,6 +129,7 @@ export default function Preview({
   const [sel, setSel] = useState<Selection | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const paths = Object.keys(files);
+  const routes = listRoutes(files["/App.js"] ?? "");
   const current = selected && selected in files ? selected : paths[0];
 
   // What the iframe currently has, so visual edits (already applied in the DOM)
@@ -188,6 +190,7 @@ export default function Preview({
 
   // Rebuild the preview document at most every 400ms. The timer is not reset by new chunks while
   // the AI streams, otherwise a steady stream of tokens would postpone the rebuild forever.
+  const [route, setRoute] = useState("/");
   const readyRef = useRef(false);
   const shellAt = useRef(0);
   const endHot = useRef(false);
@@ -262,6 +265,7 @@ export default function Preview({
       if (e.source !== frame.current?.contentWindow) return;
       const d = e.data;
       if (d?.type === "preview-shell") readyRef.current = true;
+      if (d?.type === "route" && typeof d.path === "string") setRoute(d.path);
       if (d?.type === "preview-ready") {
         readyRef.current = true;
         setError(null);
@@ -353,6 +357,28 @@ export default function Preview({
         )}
         {tab === "preview" && paths.length > 0 && onAskAI && !editDisabled && (
           <HealthPanel files={files} runProbe={runProbe} onAskAI={onAskAI} />
+        )}
+        {tab === "preview" && routes.length > 1 && (
+          <>
+          {(
+            <select
+              value={routes.includes(route) ? route : ""}
+              onChange={(e) => {
+                setRoute(e.target.value);
+                post({ type: "goto", path: e.target.value });
+              }}
+              title="Page shown in the preview"
+              className="field h-8 w-auto py-0 text-xs"
+            >
+              {!routes.includes(route) && <option value="">{route}</option>}
+              {routes.map((r) => (
+                <option key={r} value={r}>
+                  {r === "/" ? "Home page" : r}
+                </option>
+              ))}
+            </select>
+          )}
+          </>
         )}
         <div className="ml-auto flex items-center gap-1.5">
           <div className="flex items-center">
