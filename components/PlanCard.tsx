@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ClipboardList, Loader2, Plus, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ClipboardList, Loader2, Plus, RefreshCw } from "lucide-react";
 import { FONTS } from "@/lib/theme";
 import { MAX_SECTIONS, MAX_SECTIONS_MULTI, type Plan, type PlanSection } from "@/lib/plan";
 
@@ -23,6 +24,7 @@ export default function PlanCard({
   const setSection = (i: number, patch: Partial<PlanSection>) =>
     onChange({ ...plan, sections: plan.sections.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
   const multi = plan.pages.length > 1;
+  const [closed, setClosed] = useState<Record<string, boolean>>({});
   const pageOf = (s: PlanSection) => s.page || plan.pages[0];
   const max = multi ? MAX_SECTIONS_MULTI : MAX_SECTIONS;
   // Moves a section past its neighbour on the same page (the whole list when single-page).
@@ -46,13 +48,13 @@ export default function PlanCard({
           onClick={onReplan}
           disabled={replanning}
           title="Ask for a different plan"
-          className="ml-auto flex items-center gap-1 rounded-md border border-white/10 px-2 py-0.5 text-[11px] text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-50"
+          className="ml-auto flex items-center gap-1 rounded-md border border-white/10 px-2 py-0.5 text-xs text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-50"
         >
           {replanning ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />} Re-plan
         </button>
       </div>
 
-      <label className="block text-[11px] uppercase tracking-wide text-white/40">
+      <label className="block text-xs uppercase tracking-wide text-white/60">
         Visual direction
         <textarea
           value={plan.direction}
@@ -88,14 +90,22 @@ export default function PlanCard({
       </div>
 
       <div>
-        <div className="mb-1 text-[11px] uppercase tracking-wide text-white/40">
+        <div className="mb-1 text-xs uppercase tracking-wide text-white/60">
           {multi ? `${plan.pages.length} pages · ` : ""}Sections ({included} of {plan.sections.length})
         </div>
         {(multi ? plan.pages : [""]).map((page) => (
         <div key={page} className={multi ? "mb-2" : ""}>
         {multi && (
-          <div className="mb-1 mt-1 flex items-center gap-1.5 text-[11px] font-medium text-violet-200">
-            <span className="rounded bg-violet-500/20 px-1.5 py-0.5">{page}</span>
+          <div className="mb-1 mt-1 flex items-center gap-1.5 text-xs font-medium text-violet-200">
+            <button
+              onClick={() => setClosed((c) => ({ ...c, [page]: !c[page] }))}
+              aria-expanded={!closed[page]}
+              className="flex items-center gap-1 rounded bg-violet-500/20 px-1.5 py-0.5 hover:bg-violet-500/30"
+            >
+              {closed[page] ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+              {page}
+              <span className="text-violet-200/70">({plan.sections.filter((x) => x.page === page && x.include).length})</span>
+            </button>
             <button
               onClick={() =>
                 onChange({
@@ -107,13 +117,13 @@ export default function PlanCard({
                 })
               }
               disabled={plan.sections.length >= max}
-              className="ml-auto flex items-center gap-1 text-[11px] text-white/50 hover:text-white disabled:opacity-40"
+              className="ml-auto flex items-center gap-1 text-xs text-white/65 hover:text-white disabled:opacity-40"
             >
               <Plus size={11} /> Add
             </button>
           </div>
         )}
-        <ol className="space-y-1.5">
+        <ol className={`space-y-1.5 ${multi && closed[page] ? "hidden" : ""}`}>
           {plan.sections.map((s, i) =>
             multi && pageOf(s) !== page ? null : (
             <li
@@ -129,13 +139,14 @@ export default function PlanCard({
                   onChange={(e) => setSection(i, { include: e.target.checked })}
                   className="accent-violet-500"
                   title="Include this section"
+                  aria-label={`Include ${s.title}`}
                 />
                 <input
                   value={s.title}
                   onChange={(e) => setSection(i, { title: e.target.value })}
                   className={`${small} min-w-0 flex-1 font-medium`}
                 />
-                <button onClick={() => move(i, -1)} disabled={i === 0} className="icon-btn h-6 w-6" title="Move up">
+                <button onClick={() => move(i, -1)} disabled={i === 0} className="icon-btn h-6 w-6" title="Move up" aria-label={`Move ${s.title} up`}>
                   <ArrowUp size={12} />
                 </button>
                 <button
@@ -143,6 +154,7 @@ export default function PlanCard({
                   disabled={i === plan.sections.length - 1}
                   className="icon-btn h-6 w-6"
                   title="Move down"
+                  aria-label={`Move ${s.title} down`}
                 >
                   <ArrowDown size={12} />
                 </button>
@@ -168,7 +180,7 @@ export default function PlanCard({
               })
             }
             disabled={plan.sections.length >= max}
-            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 py-1.5 text-xs text-white/55 hover:border-violet-400/50 hover:text-white disabled:opacity-40"
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 py-1.5 text-xs text-white/65 hover:border-violet-400/50 hover:text-white disabled:opacity-40"
           >
             <Plus size={12} /> Add a section
           </button>
@@ -176,13 +188,13 @@ export default function PlanCard({
       </div>
 
       {plan.features.length > 0 && (
-        <div className="text-[11px] text-white/45">
+        <div className="text-xs text-white/60">
           Features: <span className="text-white/65">{plan.features.join(" · ")}</span>
         </div>
       )}
 
       <div className="flex items-center justify-between gap-2 pt-1">
-        <button onClick={onSkip} className="text-xs text-white/45 hover:text-white">
+        <button onClick={onSkip} className="text-xs text-white/60 hover:text-white">
           Skip the plan
         </button>
         <button

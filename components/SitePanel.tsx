@@ -1,5 +1,7 @@
 "use client";
 
+import { useEscape } from "@/lib/useEscape";
+
 import { useEffect, useRef, useState } from "react";
 import { Globe, Languages } from "lucide-react";
 import { isRtl, parseSite, type SiteSettings } from "@/lib/site";
@@ -32,6 +34,7 @@ export default function SitePanel({
   onAskAI?: (prompt: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  useEscape(open, () => setOpen(false));
   // Open towards the left when there is not enough room on the right (narrow windows).
   const [alignRight, setAlignRight] = useState(false);
   const btnRef = useRef<HTMLDivElement>(null);
@@ -52,9 +55,9 @@ export default function SitePanel({
   const seo = (patch: Partial<SiteSettings["seo"]>) => update({ ...draft, seo: { ...draft.seo, ...patch } });
   const wa = (patch: Partial<SiteSettings["whatsapp"]>) => update({ ...draft, whatsapp: { ...draft.whatsapp, ...patch } });
 
-  const label = "mb-1 flex items-center justify-between text-[11px] uppercase tracking-wide text-white/40";
+  const label = "mb-1 flex items-center justify-between text-xs uppercase tracking-wide text-white/60";
   const count = (n: number, max: number) => (
-    <span className={n > max ? "text-amber-300" : "text-white/30"}>
+    <span className={n > max ? "text-amber-300" : "text-white/60"}>
       {n}/{max}
     </span>
   );
@@ -69,9 +72,13 @@ export default function SitePanel({
           setOpen((v) => !v);
         }}
         title="SEO and WhatsApp button"
-        className={open ? "btn h-8 border border-violet-400/60 bg-violet-500/25 text-violet-100" : "btn-ghost h-8"}
+        className="tool-btn"
+        data-open={open}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label="Site settings: SEO and WhatsApp"
       >
-        <Globe size={13} /> Site
+        <Globe size={14} /> <span className="tool-label">Site</span>
         {waOn && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" title="WhatsApp button is on" />}
       </button>
 
@@ -79,6 +86,8 @@ export default function SitePanel({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
+            role="dialog"
+            aria-label="Site settings"
             className={`popover absolute top-full z-50 mt-2 max-h-[75vh] w-[340px] max-w-[calc(100vw-24px)] space-y-4 overflow-y-auto p-4 ${
               alignRight ? "right-0" : "left-0"
             }`}
@@ -136,7 +145,7 @@ export default function SitePanel({
                   <Languages size={13} /> Translate the site to {LANGS.find(([c]) => c === draft.seo.lang)?.[1]}
                 </button>
               )}
-              <p className="mt-2 text-[11px] leading-snug text-white/35">
+              <p className="mt-2 text-xs leading-snug text-white/60">
                 Added to the page head when you download or deploy. The site address also creates a sitemap. Urdu and Arabic switch the page to right-to-left with a proper font.
               </p>
             </div>
@@ -156,7 +165,7 @@ export default function SitePanel({
                     <span className={label}>First message</span>
                     <input value={draft.whatsapp.message} onChange={(e) => wa({ message: e.target.value })} className="field py-1.5 text-xs" />
                   </label>
-                  {!waOn && <p className="text-[11px] text-amber-300/80">Enter a valid number to show the button.</p>}
+                  {!waOn && <p className="text-xs text-amber-300/80">Enter a valid number to show the button.</p>}
                 </div>
               )}
             </div>

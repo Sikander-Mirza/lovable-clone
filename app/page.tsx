@@ -15,6 +15,7 @@ import {
   renameProject,
   type Project,
 } from "@/lib/store";
+import { flowText } from "@/lib/flow";
 import { TEMPLATES } from "@/lib/templates";
 
 // A stable gradient per project, so cards are easy to tell apart at a glance.
@@ -59,7 +60,7 @@ function Toggle({
       className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
         checked
           ? "border-violet-400/40 bg-violet-500/15 text-violet-200"
-          : "border-white/10 bg-white/[.03] text-white/45 hover:text-white/70"
+          : "border-white/10 bg-white/[.03] text-white/65 hover:text-white"
       }`}
     >
       <span
@@ -167,7 +168,7 @@ export default function Home() {
         <AuthButton onChange={refresh} />
       </header>
 
-      <main className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-6 pb-24 pt-14 sm:pt-20">
+      <main id="main" className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-6 pb-24 pt-14 sm:pt-20">
         {/* Hero */}
         <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[.04] px-3 py-1 text-xs text-white/60">
           <Sparkles size={12} className="text-violet-300" /> AI website builder
@@ -177,7 +178,7 @@ export default function Home() {
           <br />
           <span className="gradient-text">Watch it get built.</span>
         </h1>
-        <p className="mt-5 max-w-xl text-center text-base text-white/50 sm:text-lg">
+        <p className="mt-5 max-w-xl text-center text-base text-white/65 sm:text-lg">
           Turn an idea into a real, editable website in minutes. Tweak it visually, then publish it.
         </p>
 
@@ -196,7 +197,7 @@ export default function Home() {
               }}
               rows={3}
               placeholder="Ask me to build a landing page for a coffee shop..."
-              className="w-full resize-none bg-transparent px-2 py-1.5 text-base outline-none placeholder:text-white/30"
+              className="w-full resize-none bg-transparent px-2 py-1.5 text-base outline-none placeholder:text-white/50"
             />
             <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -224,6 +225,7 @@ export default function Home() {
                 onClick={() => start(prompt, true)}
                 disabled={!prompt.trim() && !att.images.length}
                 title="Build"
+                aria-label="Build"
                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-900/40 transition hover:brightness-110 disabled:opacity-30 disabled:shadow-none"
               >
                 <ArrowUp size={18} />
@@ -231,14 +233,36 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <p className="mt-3 text-xs text-white/30">Press Enter to start · Shift+Enter for a new line · paste or drop an image for a reference</p>
+        <p className="mt-3 max-w-3xl text-center text-xs text-white/60" aria-live="polite">
+          {flowText(askFirst, planFirst, autoExpand)}
+        </p>
+        <p className="mt-1 text-xs text-white/60">Press Enter to start · Shift+Enter for a new line · paste or drop an image for a reference</p>
+
+        {/* How it works */}
+        <ol className="mt-16 grid w-full gap-3 sm:grid-cols-3" aria-label="How it works">
+          {[
+            ["1", "Describe", "Say what you need, or pick a template. Attach a screenshot if you have a reference."],
+            ["2", "Watch it build", "Sections appear live in the preview as the AI writes them."],
+            ["3", "Edit and publish", "Click to edit, restyle the theme, then download, push to GitHub or deploy."],
+          ].map(([n, t, d]) => (
+            <li key={n} className="flex gap-3 rounded-2xl border border-white/[.08] bg-white/[.02] p-4">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-sm font-semibold text-violet-200">
+                {n}
+              </span>
+              <span>
+                <span className="block text-sm font-semibold">{t}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-white/60">{d}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
 
         {/* Templates */}
-        <section className="mt-20 w-full">
+        <section className="mt-14 w-full">
           <div className="mb-4 flex items-end justify-between">
             <div>
               <h2 className="text-lg font-semibold tracking-tight">Start from a template</h2>
-              <p className="text-sm text-white/40">Detailed starting points. Click one to build it right away.</p>
+              <p className="text-sm text-white/60">Detailed starting points. Click one to build it right away.</p>
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -255,7 +279,7 @@ export default function Home() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">{t.title}</span>
-                  <span className="mt-0.5 block text-xs text-white/45">{t.blurb}</span>
+                  <span className="mt-0.5 block text-xs text-white/60">{t.blurb}</span>
                 </span>
                 <ArrowRight
                   size={16}
@@ -271,7 +295,7 @@ export default function Home() {
           <section className="mt-16 w-full">
             <div className="mb-4 flex items-baseline gap-2">
               <h2 className="text-lg font-semibold tracking-tight">Your projects</h2>
-              <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/50">{projects.length}</span>
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/65">{projects.length}</span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {projects.map((p) => (
@@ -298,15 +322,15 @@ export default function Home() {
                     />
                   ) : (
                     <Link href={`/project/${p.id}`} className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{p.name}</div>
-                      <div className="text-xs text-white/40">
+                      <div className="line-clamp-2 break-words text-sm font-medium leading-snug" title={p.name}>{p.name}</div>
+                      <div className="text-xs text-white/60">
                         {ago(p.updatedAt)} · {Object.keys(p.files).filter((f) => f !== "/theme.json").length} files
                       </div>
                     </Link>
                   )}
-                  <div className="flex items-center opacity-0 transition group-hover:opacity-100">
+                  <div className="flex items-center opacity-0 transition focus-within:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100">
                     {renaming === p.id ? (
-                      <button onClick={() => commitRename(p.id)} title="Save name" className="icon-btn h-7 w-7 hover:text-emerald-400">
+                      <button onClick={() => commitRename(p.id)} title="Save name" aria-label="Save name" className="icon-btn h-7 w-7 hover:text-emerald-400">
                         <Check size={14} />
                       </button>
                     ) : (
@@ -316,6 +340,7 @@ export default function Home() {
                           setRenaming(p.id);
                         }}
                         title="Rename"
+                        aria-label={`Rename ${p.name}`}
                         className="icon-btn h-7 w-7"
                       >
                         <Pencil size={13} />
@@ -327,6 +352,7 @@ export default function Home() {
                         refresh();
                       }}
                       title="Duplicate"
+                      aria-label={`Duplicate ${p.name}`}
                       className="icon-btn h-7 w-7"
                     >
                       <Copy size={13} />
@@ -338,6 +364,7 @@ export default function Home() {
                         refresh();
                       }}
                       title="Delete"
+                      aria-label={`Delete ${p.name}`}
                       className="icon-btn h-7 w-7 hover:text-red-400"
                     >
                       <Trash2 size={13} />

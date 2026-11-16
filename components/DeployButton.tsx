@@ -1,5 +1,7 @@
 "use client";
 
+import { useEscape } from "@/lib/useEscape";
+
 import { useEffect, useRef, useState } from "react";
 import { Rocket, Loader2, ExternalLink } from "lucide-react";
 import { toRepoFiles } from "@/lib/exportProject";
@@ -42,6 +44,7 @@ export default function DeployButton({
   files: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
+  useEscape(open, () => setOpen(false));
   const [token, setToken] = useState("");
   const [phase, setPhase] = useState<"idle" | "working" | "done" | "error">("idle");
   const [status, setStatus] = useState("");
@@ -117,6 +120,7 @@ export default function DeployButton({
         onClick={() => setOpen(true)}
         disabled={!hasFiles}
         title="Deploy to Vercel"
+        aria-label="Deploy to Vercel"
         className="btn-primary h-8 px-3"
       >
         <Rocket size={13} /> Deploy
@@ -129,6 +133,9 @@ export default function DeployButton({
         >
           <div
             className="w-full max-w-md space-y-3 modal p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Deploy to Vercel"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -147,14 +154,14 @@ export default function DeployButton({
             {oauth && (
               <div className="flex items-center justify-between rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
                 <span>Connected to Vercel</span>
-                <button onClick={() => disconnect("vercel")} className="text-white/50 hover:text-white">
+                <button onClick={() => disconnect("vercel")} className="text-white/65 hover:text-white">
                   Disconnect
                 </button>
               </div>
             )}
 
             {needsToken && (
-              <label className="block text-xs text-white/50">
+              <label className="block text-xs text-white/65">
                 Vercel token{" "}
                 <a
                   href="https://vercel.com/account/tokens"
@@ -171,14 +178,14 @@ export default function DeployButton({
                   placeholder="Paste token"
                   className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none"
                 />
-                <span className="mt-1 block text-white/30">
+                <span className="mt-1 block text-white/60">
                   Kept in this browser; sent to Vercel through this app&apos;s server only when you deploy.
                 </span>
               </label>
             )}
 
             {conn?.vercel.configured && !oauth && (
-              <button onClick={() => setUseToken((v) => !v)} className="text-xs text-white/40 hover:text-white">
+              <button onClick={() => setUseToken((v) => !v)} className="text-xs text-white/60 hover:text-white">
                 {useToken ? "Use Connect Vercel instead" : "Use a token instead"}
               </button>
             )}

@@ -62,7 +62,8 @@ export function AttachButton({ onFiles }: { onFiles: (files: File[]) => void }) 
         type="button"
         onClick={() => ref.current?.click()}
         title="Attach image (or paste / drop)"
-        className="rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white"
+        aria-label="Attach an image"
+        className="rounded-lg p-2 text-white/65 hover:bg-white/10 hover:text-white"
       >
         <ImagePlus size={16} />
       </button>

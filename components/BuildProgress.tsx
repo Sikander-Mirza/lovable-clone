@@ -54,7 +54,7 @@ export default function BuildProgress({ raw, mode }: { raw: string; mode: BuildM
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">{TITLES[mode]}</div>
-          <div className="text-[11px] text-white/40">
+          <div className="text-xs text-white/60">
             {fmt(secs)} · {raw.length > 999 ? `${(raw.length / 1000).toFixed(1)}k` : raw.length} characters generated
           </div>
         </div>
@@ -67,7 +67,7 @@ export default function BuildProgress({ raw, mode }: { raw: string; mode: BuildM
           <li
             key={s.label}
             className={`flex items-center gap-2 text-xs transition ${
-              s.done ? "text-white/45" : s.active ? "text-white" : "text-white/25"
+              s.done ? "text-white/60" : s.active ? "text-white" : "text-white/60"
             }`}
           >
             {s.done ? (
@@ -78,7 +78,7 @@ export default function BuildProgress({ raw, mode }: { raw: string; mode: BuildM
               <span className="h-3 w-3 rounded-full border border-white/20" />
             )}
             <span className="truncate">{s.label}</span>
-            {s.extra && <span className="ml-auto shrink-0 text-white/35">{s.extra}</span>}
+            {s.extra && <span className="ml-auto shrink-0 text-white/60">{s.extra}</span>}
           </li>
         ))}
       </ul>

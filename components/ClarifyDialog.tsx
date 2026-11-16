@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEscape } from "@/lib/useEscape";
 import { ClipboardList, X } from "lucide-react";
 import { QUESTIONS, guessType, type ClarifyQuestion } from "@/lib/questionnaire";
 
@@ -35,6 +36,8 @@ export default function ClarifyDialog({
     return guess && ti >= 0 ? { [ti]: { picks: [guess], custom: "" } } : {};
   });
 
+  useEscape(true, onCancel);
+
   const toggle = (qi: number, option: string, multi: boolean) =>
     setAnswers((prev) => {
       const cur = prev[qi] ?? { picks: [], custom: "" };
@@ -51,6 +54,9 @@ export default function ClarifyDialog({
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="A few questions before building"
         className="flex max-h-[90vh] w-full max-w-2xl flex-col modal"
         onClick={(e) => e.stopPropagation()}
       >
@@ -59,11 +65,11 @@ export default function ClarifyDialog({
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <ClipboardList size={17} className="text-violet-400" /> A few quick questions
             </h2>
-            <p className="mt-0.5 line-clamp-1 text-xs text-white/45">
+            <p className="mt-0.5 line-clamp-1 text-xs text-white/60">
               &ldquo;{prompt}&rdquo; &middot; answer what you like, skip the rest
             </p>
           </div>
-          <button onClick={onCancel} className="text-white/40 hover:text-white" title="Close">
+          <button onClick={onCancel} className="text-white/60 hover:text-white" title="Close">
             <X size={18} />
           </button>
         </div>
@@ -73,7 +79,7 @@ export default function ClarifyDialog({
             <div key={q.id}>
               <p className="text-sm font-medium">
                 {qi + 1}. {q.question}
-                {q.multi && <span className="ml-2 text-[11px] font-normal text-white/35">pick any</span>}
+                {q.multi && <span className="ml-2 text-xs font-normal text-white/60">pick any</span>}
               </p>
               {q.options.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -99,14 +105,14 @@ export default function ClarifyDialog({
                 value={answers[qi]?.custom ?? ""}
                 onChange={(e) => setCustom(qi, e.target.value)}
                 placeholder={q.placeholder ?? "Or type your own answer..."}
-                className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs outline-none placeholder:text-white/25 focus:border-white/30"
+                className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs outline-none placeholder:text-white/50 focus:border-white/30"
               />
             </div>
           ))}
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-white/10 px-6 py-4">
-          <button onClick={() => onBuild("")} className="text-sm text-white/50 hover:text-white">
+          <button onClick={() => onBuild("")} className="text-sm text-white/65 hover:text-white">
             Skip, just build it
           </button>
           <button

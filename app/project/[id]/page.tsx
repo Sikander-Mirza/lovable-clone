@@ -1,9 +1,11 @@
 "use client";
 
+import { splitNotice } from "@/lib/notice";
+import { useMediaQuery } from "@/lib/useMedia";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Download, Pencil, Sparkles } from "lucide-react";
+import { ArrowLeft, Download, Eye, MessageSquare, Pencil, Sparkles } from "lucide-react";
 import { toRepoFiles } from "@/lib/exportProject";
 import { createZip, downloadBlob } from "@/lib/zip";
 import Chat from "@/components/Chat";
@@ -37,6 +39,9 @@ export default function ProjectPage() {
   // Width of the chat panel (user-resizable, remembered in this browser).
   const [chatWidth, setChatWidth] = useState(400);
   const [resizing, setResizing] = useState(false);
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const [modelNotice, setModelNotice] = useState<string | null>(null);
+  const [pane, setPane] = useState<"chat" | "preview">("chat");
   useEffect(() => {
     try {
       const w = Number(localStorage.getItem("lovable-clone:chat-width"));
@@ -99,6 +104,7 @@ export default function ProjectPage() {
   const run = useCallback(async (p: Project) => {
     setBusy(true);
     setStreaming("");
+    setModelNotice(null);
     let raw = "";
     // Embedded images are replaced by short placeholders for the model, then restored.
     const compact = compactFiles(p.files);
@@ -127,11 +133,14 @@ export default function ProjectPage() {
         const { done, value } = await reader.read();
         if (done) break;
         raw += dec.decode(value, { stream: true });
-        setStreaming(raw);
+        const split = splitNotice(raw);
+        if (split.notice) setModelNotice(split.notice);
+        setStreaming(split.raw);
       }
     } catch (e: any) {
       raw += `\n\n[error] ${e?.message ?? "request failed"}`;
     }
+    raw = splitNotice(raw).raw;
     const result = parseAssistant(raw);
     const parsed = restoreAll(result.files, compact.table);
     // Patch edits: the model saw image placeholders, so restore them in the search/replace text too.
@@ -477,24 +486,25 @@ export default function ProjectPage() {
   };
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-[100dvh] flex-col">
       {/* Top bar: where you are, and what you can do with the project */}
       <header
         className={`h-[52px] shrink-0 items-center gap-2 border-b border-white/[.08] bg-[#0a0a10] px-3 ${
           focus ? "hidden" : "flex"
         }`}
       >
-        <Link href="/" title="All projects" className="icon-btn">
+        <Link href="/" title="All projects" aria-label="All projects" className="icon-btn">
           <ArrowLeft size={17} />
         </Link>
         <Link
           href="/"
           title="Home"
-          className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50"
+          aria-label="Home"
+          className="hidden h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50 sm:flex"
         >
           <Sparkles size={14} className="text-white" />
         </Link>
-        <span className="mx-1 h-5 w-px bg-white/10" />
+        <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
         {renaming ? (
           <input
             autoFocus
@@ -545,7 +555,12 @@ export default function ProjectPage() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-      <aside style={{ width: chatWidth }} className={`shrink-0 flex-col bg-[#0b0b11] ${focus ? "hidden" : "flex"}`}>
+      <aside
+        style={isMobile ? undefined : { width: chatWidth }}
+        className={`flex-col bg-[#0b0b11] ${isMobile ? "min-w-0 flex-1" : "shrink-0"} ${
+          focus || (isMobile && pane !== "chat") ? "hidden" : "flex"
+        }`}
+      >
         <div className="min-h-0 flex-1">
           <Chat
             messages={project.messages}
@@ -556,6 +571,7 @@ export default function ProjectPage() {
             onRestore={restore}
             onRetry={retry}
             planning={planning}
+            notice={modelNotice}
             plan={pendingPlan?.plan ?? null}
             replanning={replanning}
             onPlanChange={(plan) => setPendingPlan((cur) => (cur ? { ...cur, plan } : cur))}
@@ -574,13 +590,13 @@ export default function ProjectPage() {
         onDoubleClick={() => setChatWidth(400)}
         title="Drag to resize (double-click to reset)"
         className={`group relative z-10 w-1.5 shrink-0 cursor-col-resize bg-white/[.06] transition hover:bg-violet-400/50 ${
-          focus ? "hidden" : ""
+          focus || isMobile ? "hidden" : ""
         }`}
       >
         <span className="absolute left-1/2 top-1/2 h-8 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20 group-hover:bg-white/60" />
       </div>
       {resizing && <div className="fixed inset-0 z-50 cursor-col-resize" />}
-      <main className="min-w-0 flex-1">
+      <main id="main" className={`min-w-0 flex-1 ${isMobile && pane !== "preview" && !focus ? "hidden" : ""}`}>
         <Preview
           files={liveFiles}
           projectId={project.id}
@@ -611,6 +627,34 @@ export default function ProjectPage() {
         />
       </main>
       </div>
+      {/* Phones: one pane at a time, switched from the bottom */}
+      {isMobile && !focus && (
+        <nav aria-label="Switch between chat and preview" className="grid shrink-0 grid-cols-2 border-t border-white/[.08] bg-[#0a0a10] pb-[env(safe-area-inset-bottom)]">
+          {(
+            [
+              ["chat", MessageSquare, "Chat"],
+              ["preview", Eye, "Preview"],
+            ] as const
+          ).map(([id, Icon, label]) => (
+            <button
+              key={id}
+              onClick={() => setPane(id)}
+              aria-current={pane === id ? "page" : undefined}
+              className={`flex h-14 flex-col items-center justify-center gap-0.5 text-xs font-medium transition ${
+                pane === id ? "text-violet-300" : "text-white/60 hover:text-white"
+              }`}
+            >
+              <span className="relative">
+                <Icon size={18} />
+                {busy && id === "preview" && pane !== "preview" && (
+                  <span className="absolute -right-1 -top-1 h-2 w-2 animate-pulse rounded-full bg-violet-400" />
+                )}
+              </span>
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }

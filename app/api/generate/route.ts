@@ -1,3 +1,4 @@
+import { NOTICE_PREFIX } from "@/lib/notice";
 import OpenAI from "openai";
 import { SYSTEM_PROMPT, filesContext } from "@/lib/prompt";
 import { guardRequest } from "@/lib/guard";
@@ -124,6 +125,13 @@ export async function POST(req: Request) {
                   firstTokenMs = Date.now() - t0;
                   served = { provider, model };
                   console.log(`[generate] ${provider}/${model} first token after ${firstTokenMs}ms`);
+                  // Tell the user when a backup model answers: it can be rougher than the main one.
+                  if (client !== targets[0].client || model !== targets[0].model) {
+                    controller.enqueue(
+                      encoder.encode(`${NOTICE_PREFIX}The main model is busy, so a backup model is answering. Results may be rougher than usual.
+`)
+                    );
+                  }
                 }
                 outChars += t.length;
                 controller.enqueue(encoder.encode(t));

@@ -16,7 +16,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Google Search Console site verification */}
         <meta name="google-site-verification" content="lJ3oKLsynphXdbx9KgG4adwYpqoGbOZTUka4NBiFHcg" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
+        {children}
+      </body>
     </html>
   );
 }

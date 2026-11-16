@@ -1,5 +1,7 @@
 "use client";
 
+import { useEscape } from "@/lib/useEscape";
+
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { LogOut } from "lucide-react";
@@ -10,6 +12,7 @@ export default function AuthButton({ onChange }: { onChange: () => void }) {
   const sb = getSupabase();
   const [user, setUser] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
+  useEscape(open, () => setOpen(false));
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +37,7 @@ export default function AuthButton({ onChange }: { onChange: () => void }) {
   if (!sb) {
     return (
       <span
-        className="text-xs text-white/30"
+        className="text-xs text-white/60"
         title="Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable login"
       >
         Saved in this browser only
@@ -83,6 +86,9 @@ export default function AuthButton({ onChange }: { onChange: () => void }) {
         >
           <div
             className="w-full max-w-sm space-y-3 modal p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Sign in"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-semibold">{mode === "in" ? "Sign in" : "Create account"}</h2>
@@ -111,7 +117,7 @@ export default function AuthButton({ onChange }: { onChange: () => void }) {
             </button>
             <button
               onClick={() => setMode(mode === "in" ? "up" : "in")}
-              className="w-full text-xs text-white/50 hover:text-white"
+              className="w-full text-xs text-white/65 hover:text-white"
             >
               {mode === "in" ? "No account? Create one" : "Have an account? Sign in"}
             </button>

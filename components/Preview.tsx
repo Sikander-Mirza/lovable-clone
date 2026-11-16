@@ -115,6 +115,15 @@ export default function Preview({
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [everReady, files, building]);
+  // Packages load from the network: say so when it takes a while, and offer a reload.
+  const [slowLoad, setSlowLoad] = useState(false);
+  useEffect(() => {
+    setSlowLoad(false);
+    if (everReady || building || Object.keys(files).length === 0) return;
+    const t = setTimeout(() => setSlowLoad(true), 12000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [everReady, building, nonce]);
   const onRuntimeErrorRef = useRef(onRuntimeError);
   onRuntimeErrorRef.current = onRuntimeError;
   const undoRef = useRef(onUndo);
@@ -316,8 +325,8 @@ export default function Preview({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/[.08] bg-[#0a0a10] px-3 py-2">
-        <div className="seg">
+      <div className="flex flex-wrap items-center gap-2 bg-[#0a0a10] px-3 py-2">
+        <div className="seg" role="tablist" aria-label="View">
           {(
             [
               ["preview", Eye, "Preview"],
@@ -325,39 +334,11 @@ export default function Preview({
               ["data", Inbox, "Data"],
             ] as const
           ).map(([id, Icon, label]) => (
-            <button key={id} onClick={() => setTab(id)} data-active={tab === id} className="seg-btn">
+            <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} data-active={tab === id} className="seg-btn">
               <Icon size={14} /> {label}
             </button>
           ))}
         </div>
-        {tab === "preview" && paths.length > 0 && (
-          <button
-            onClick={() => setEditMode((v) => !v)}
-            disabled={editDisabled}
-            title={editDisabled ? "Wait for the AI to finish" : "Edit the page visually"}
-            className={`ml-1 ${
-              editMode && !editDisabled
-                ? "btn border border-violet-400/60 bg-violet-500/25 text-violet-100 h-8"
-                : "btn-ghost h-8"
-            }`}
-          >
-            <Pencil size={13} /> Edit
-          </button>
-        )}
-        {tab === "preview" && paths.length > 0 && onThemeChange && (
-          <div className="ml-1">
-            <ThemePanel files={files} onChange={onThemeChange} onAskAI={onAskAI} />
-          </div>
-        )}
-        {tab === "preview" && paths.length > 0 && onFilesChange && !editDisabled && (
-          <SectionsPanel files={files} onFilesChange={onFilesChange} onAskAI={onAskAI} />
-        )}
-        {tab === "preview" && paths.length > 0 && onSiteChange && (
-          <SitePanel files={files} projectName={projectName ?? ""} onChange={onSiteChange} onAskAI={onAskAI} />
-        )}
-        {tab === "preview" && paths.length > 0 && onAskAI && !editDisabled && (
-          <HealthPanel files={files} runProbe={runProbe} onAskAI={onAskAI} />
-        )}
         {tab === "preview" && routes.length > 1 && (
           <>
           {(
@@ -368,6 +349,7 @@ export default function Preview({
                 post({ type: "goto", path: e.target.value });
               }}
               title="Page shown in the preview"
+              aria-label="Page shown in the preview"
               className="field h-8 w-auto py-0 text-xs"
             >
               {!routes.includes(route) && <option value="">{route}</option>}
@@ -382,26 +364,26 @@ export default function Preview({
         )}
         <div className="ml-auto flex items-center gap-1.5">
           <div className="flex items-center">
-            <button onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" className="icon-btn">
+            <button onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo" className="icon-btn">
               <Undo2 size={15} />
             </button>
-            <button onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" className="icon-btn">
+            <button onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo" className="icon-btn">
               <Redo2 size={15} />
             </button>
           </div>
           {tab === "preview" && (
             <>
-              <div className="seg">
+              <div className="seg" role="group" aria-label="Preview size">
                 {(Object.keys(DEVICES) as (keyof typeof DEVICES)[]).map((k) => {
                   const { Icon, label } = DEVICES[k];
                   return (
-                    <button key={k} onClick={() => setDevice(k)} title={label} data-active={device === k} className="seg-btn px-2">
+                    <button key={k} onClick={() => setDevice(k)} title={label} aria-label={label} aria-pressed={device === k} data-active={device === k} className="seg-btn px-2">
                       <Icon size={15} />
                     </button>
                   );
                 })}
               </div>
-              <button onClick={() => setNonce((n) => n + 1)} title="Reload preview" className="icon-btn">
+              <button onClick={() => setNonce((n) => n + 1)} title="Reload preview" aria-label="Reload preview" className="icon-btn">
                 <RefreshCw size={14} />
               </button>
             </>
@@ -410,6 +392,8 @@ export default function Preview({
             <button
               onClick={onToggleFocus}
               title={focusMode ? "Exit full preview (Esc)" : "Full preview"}
+              aria-label={focusMode ? "Exit full preview" : "Full preview"}
+              aria-pressed={!!focusMode}
               className={`icon-btn ${focusMode ? "bg-violet-500/25 text-violet-100" : ""}`}
             >
               {focusMode ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
@@ -434,6 +418,40 @@ export default function Preview({
         )}
       </div>
 
+      {tab === "preview" && paths.length > 0 && (
+        <div className="tools border-b border-white/[.08] bg-[#0a0a10] px-3 pb-2">
+          <div role="toolbar" aria-label="Design tools" className="flex flex-wrap items-center gap-1.5">
+        {tab === "preview" && paths.length > 0 && (
+          <button
+            onClick={() => setEditMode((v) => !v)}
+            disabled={editDisabled}
+            title={editDisabled ? "Wait for the AI to finish" : "Edit the page visually"}
+            aria-label="Edit the page visually"
+            aria-pressed={editMode && !editDisabled}
+            className="tool-btn"
+            data-open={editMode && !editDisabled}
+          >
+            <Pencil size={14} /> <span className="tool-label">Edit</span>
+          </button>
+        )}
+        {tab === "preview" && paths.length > 0 && onThemeChange && (
+          <div>
+            <ThemePanel files={files} onChange={onThemeChange} onAskAI={onAskAI} />
+          </div>
+        )}
+        {tab === "preview" && paths.length > 0 && onFilesChange && !editDisabled && (
+          <SectionsPanel files={files} onFilesChange={onFilesChange} onAskAI={onAskAI} />
+        )}
+        {tab === "preview" && paths.length > 0 && onSiteChange && (
+          <SitePanel files={files} projectName={projectName ?? ""} onChange={onSiteChange} onAskAI={onAskAI} />
+        )}
+        {tab === "preview" && paths.length > 0 && onAskAI && !editDisabled && (
+          <HealthPanel files={files} runProbe={runProbe} onAskAI={onAskAI} />
+        )}
+          </div>
+        </div>
+      )}
+
       {editMode && !editDisabled && tab === "preview" && paths.length > 0 && (
         <EditBar
           sel={sel}
@@ -453,6 +471,14 @@ export default function Preview({
         {(paths.length > 0 || building) && tab === "preview" && (!everReady || (building && !!error)) && (
           <div className="absolute inset-0 z-20">
             <BuildingWireframe label={building ? "Designing and writing your site" : "Loading your preview"} />
+            {slowLoad && !building && (
+              <div role="status" className="absolute inset-x-0 bottom-4 flex items-center justify-center gap-2 text-xs text-white/70">
+                Taking longer than usual (packages load from the internet).
+                <button onClick={() => setNonce((n) => n + 1)} className="btn-ghost h-7 px-2.5 text-xs">
+                  <RefreshCw size={12} /> Reload
+                </button>
+              </div>
+            )}
           </div>
         )}
         {/* While the AI works on an existing site: a moving bar and a small status pill */}
@@ -468,7 +494,7 @@ export default function Preview({
           building ? (
             <BuildingWireframe />
           ) : (
-            <div className="flex h-full items-center justify-center text-white/40">Your app will appear here.</div>
+            <div className="flex h-full items-center justify-center text-white/60">Your app will appear here.</div>
           )
         ) : (
           <>
@@ -493,6 +519,7 @@ export default function Preview({
                     <button
                       key={p}
                       onClick={() => setSelected(p)}
+                      aria-current={p === current ? "true" : undefined}
                       className={`block w-full truncate rounded px-2 py-1 text-left ${
                         p === current ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
                       }`}

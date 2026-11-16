@@ -1,5 +1,7 @@
 "use client";
 
+import { useEscape } from "@/lib/useEscape";
+
 import { useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Eye, EyeOff, LayoutList, Plus, Sparkles, Trash2 } from "lucide-react";
 import { LIBRARY, insertSection, listSections, moveSection, regeneratePrompt, removeSection, toggleSection } from "@/lib/sections";
@@ -19,6 +21,7 @@ export default function SectionsPanel({
   const [regen, setRegen] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [open, setOpen] = useState(false);
+  useEscape(open, () => setOpen(false));
   const [alignRight, setAlignRight] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const app = files["/App.js"] ?? "";
@@ -47,22 +50,28 @@ export default function SectionsPanel({
           setOpen((v) => !v);
         }}
         title="Reorder, hide and add sections"
-        className={open ? "btn h-8 border border-violet-400/60 bg-violet-500/25 text-violet-100" : "btn-ghost h-8"}
+        className="tool-btn"
+        data-open={open}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label="Sections: reorder, hide and add"
       >
-        <LayoutList size={13} /> Sections
+        <LayoutList size={14} /> <span className="tool-label">Sections</span>
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
+            role="dialog"
+            aria-label="Page sections"
             className={`popover absolute top-full z-50 mt-2 max-h-[75vh] w-[320px] max-w-[calc(100vw-24px)] overflow-y-auto p-3 ${
               alignRight ? "right-0" : "left-0"
             }`}
           >
             <div className="mb-2 px-1 text-xs font-medium text-white/80">Page sections</div>
             {sections.length === 0 ? (
-              <p className="px-1 pb-2 text-xs leading-snug text-white/45">
+              <p className="px-1 pb-2 text-xs leading-snug text-white/60">
                 No sections found in /App.js. This panel works with single-page sites where App.js lists one section per line.
               </p>
             ) : (
@@ -152,12 +161,12 @@ export default function SectionsPanel({
                     <span className="flex items-center gap-1 font-medium">
                       <Plus size={11} /> {item.label}
                     </span>
-                    <span className="text-[10.5px] leading-tight text-white/40">{item.description}</span>
+                    <span className="text-[10.5px] leading-tight text-white/60">{item.description}</span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-2.5 px-1 text-[11px] leading-snug text-white/35">
+            <p className="mt-2.5 px-1 text-xs leading-snug text-white/60">
               Library sections use your brand color and can be edited with the Edit tool or the chat.
             </p>
           </div>

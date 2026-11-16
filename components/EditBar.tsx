@@ -81,7 +81,7 @@ function AddMenu({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-full z-50 mt-1 w-44 popover p-1.5 shadow-xl">
-            <div className="mb-1 flex gap-1 rounded-md bg-white/5 p-0.5 text-[11px]">
+            <div className="mb-1 flex gap-1 rounded-md bg-white/5 p-0.5 text-xs">
               {(["after", "inside"] as const).map((w) => (
                 <button
                   key={w}
@@ -135,7 +135,7 @@ function PhotoPicker({ onPick }: { onPick: (src: string) => void }) {
                 <button
                   key={c}
                   onClick={() => setCat(c)}
-                  className={`rounded-full px-2 py-0.5 text-[11px] capitalize ${
+                  className={`rounded-full px-2 py-0.5 text-xs capitalize ${
                     cat === c ? "bg-violet-600 text-white" : "bg-white/5 text-white/60 hover:text-white"
                   }`}
                 >
@@ -199,7 +199,7 @@ export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelet
   };
 
   const box = "rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs text-white outline-none";
-  const label = "text-[11px] uppercase tracking-wide text-white/40";
+  const label = "text-xs uppercase tracking-wide text-white/60";
 
   if (!sel) {
     return (
@@ -212,7 +212,7 @@ export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelet
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/10 bg-violet-500/10 px-3 py-2">
-      <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[11px] font-medium">&lt;{sel.tag}&gt;</span>
+      <span className="rounded bg-violet-600 px-1.5 py-0.5 text-xs font-medium">&lt;{sel.tag}&gt;</span>
       <AddMenu canAfter={sel.canDelete} onInsert={onInsert} />
 
       {sel.canText && (
@@ -383,7 +383,7 @@ export default function EditBar({ sel, notice, onText, onStyle, onImage, onDelet
           </div>
         </>
       ) : (
-        <span className="text-xs text-white/50">Styles for this element come from code. Ask the AI to change them.</span>
+        <span className="text-xs text-white/65">Styles for this element come from code. Ask the AI to change them.</span>
       )}
 
       {sel.canDelete && (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, FileCode2, Loader2, Pencil, RotateCcw, Sparkles, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowUp, FileCode2, Loader2, Pencil, RotateCcw, Sparkles, Wrench } from "lucide-react";
 import { suggestionsFor } from "@/lib/suggestions";
 import BuildProgress from "./BuildProgress";
 import PlanCard from "./PlanCard";
@@ -21,6 +21,8 @@ type Props = {
   onRetry: () => void;
   /** Plan-before-build: the planner is thinking / a plan awaits review. */
   planning?: boolean;
+  /** One-line heads-up from the server (e.g. a backup model is answering). */
+  notice?: string | null;
   plan?: Plan | null;
   replanning?: boolean;
   onPlanChange?: (p: Plan) => void;
@@ -28,6 +30,21 @@ type Props = {
   onSkipPlan?: () => void;
   onReplan?: () => void;
 };
+
+/** While writing, every file is listed. Afterwards a long list folds into one line you can open. */
+function FileList({ live, count, children }: { live?: boolean; count: number; children: React.ReactNode }) {
+  if (live || count <= 3) return <div className="space-y-1">{children}</div>;
+  return (
+    <details className="group rounded-lg border border-white/10 bg-white/[.03]">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-2.5 py-1.5 text-xs text-white/70 hover:text-white">
+        <FileCode2 size={12} /> {count} files written
+        <span className="ml-auto text-white/50 group-open:hidden">Show</span>
+        <span className="ml-auto hidden text-white/50 group-open:inline">Hide</span>
+      </summary>
+      <div className="space-y-1 p-1.5 pt-0">{children}</div>
+    </details>
+  );
+}
 
 function AssistantBubble({
   raw,
@@ -70,7 +87,8 @@ function AssistantBubble({
         text && <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">{text}</p>
       )}
       {(paths.length > 0 || editRows.length > 0) && (
-        <div className="space-y-1">
+        <FileList live={live} count={paths.length + editRows.length}>
+
           {editRows.map((e) => (
             <div
               key={`edit-${e.path}`}
@@ -98,10 +116,10 @@ function AssistantBubble({
               {p}
             </div>
           ))}
-        </div>
+        </FileList>
       )}
       {version !== undefined && (
-        <div className="flex items-center gap-2 text-[11px] text-white/35">
+        <div className="flex items-center gap-2 text-xs text-white/60">
           <span>Version {version}</span>
           {onRestore && (
             <button
@@ -126,6 +144,7 @@ export default function Chat({
   onRestore,
   onRetry,
   planning,
+  notice,
   plan,
   replanning,
   onPlanChange,
@@ -152,7 +171,7 @@ export default function Chat({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden break-words p-4">
+      <div role="log" aria-live="polite" aria-label="Conversation" className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden break-words p-4 pt-6">
         {messages.map((m, i) =>
           m.auto ? (
             <div key={i} className="flex items-center gap-1.5 text-xs text-violet-300/80">
@@ -184,7 +203,7 @@ export default function Chat({
                     {m.plan.sections
                       .filter((s) => s.include)
                       .map((s, j) => (
-                        <span key={j} className="rounded bg-white/15 px-1.5 py-0.5 text-[10px]">
+                        <span key={j} className="rounded bg-white/15 px-1.5 py-0.5 text-xs">
                           {m.plan!.pages.length > 1 && s.page ? `${s.page}: ` : ""}
                           {s.title}
                         </span>
@@ -223,7 +242,7 @@ export default function Chat({
               </span>
               <div>
                 <div className="text-sm font-medium">Planning your site</div>
-                <div className="text-[11px] text-white/40">Choosing a visual direction and the sections...</div>
+                <div className="text-xs text-white/60">Choosing a visual direction and the sections...</div>
               </div>
             </div>
             <div className="progress-indeterminate mt-3" />
@@ -240,6 +259,11 @@ export default function Chat({
           />
         )}
         {streaming !== null && streaming !== "" && <AssistantBubble raw={streaming} live />}
+        {notice && (
+          <div role="status" className="flex items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs leading-snug text-amber-100">
+            <AlertTriangle size={13} className="mt-px shrink-0" /> {notice}
+          </div>
+        )}
         {busy && streaming !== null && (
           <BuildProgress
             raw={streaming}
@@ -256,11 +280,14 @@ export default function Chat({
         )}
         {!busy && streaming === null && messages.length > 1 && messages[messages.length - 1].snapshot && (
           <div className="flex flex-wrap gap-1.5 pt-1">
-            {suggestionsFor(currentFiles).map((s) => (
+            {suggestionsFor(currentFiles, 6)
+              .filter((s) => !messages.some((m) => m.content === s.prompt))
+              .slice(0, 4)
+              .map((s) => (
               <button
                 key={s.label}
                 onClick={() => onSend(s.prompt, [])}
-                className="rounded-full border border-white/15 px-2.5 py-1 text-[11px] text-white/60 transition hover:border-violet-400/60 hover:text-white"
+                className="chip"
               >
                 + {s.label}
               </button>
@@ -286,10 +313,13 @@ export default function Chat({
             }}
             rows={2}
             placeholder="Ask for a change..."
-            className="flex-1 resize-none bg-transparent px-2 py-1 text-sm outline-none placeholder:text-white/30"
+            aria-label="Message the AI"
+            className="flex-1 resize-none bg-transparent px-2 py-1 text-sm outline-none placeholder:text-white/50"
           />
           <button
             onClick={submit}
+            aria-label="Send message"
+            title="Send (Enter)"
             disabled={busy || (!input.trim() && !att.images.length)}
             className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-950/40 transition hover:brightness-110 disabled:opacity-30 disabled:shadow-none"
           >

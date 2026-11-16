@@ -15,17 +15,17 @@ export default function SubmissionsPanel({ projectId, tick }: { projectId: strin
     load();
   }, [load, tick]);
 
-  if (!rows) return <div className="p-6 text-sm text-white/50">Loading...</div>;
+  if (!rows) return <div className="p-6 text-sm text-white/65">Loading...</div>;
 
   const forms = Array.from(new Set(rows.map((r) => r.form)));
   const shown = form === "all" ? rows : rows.filter((r) => r.form === form);
 
   if (!rows.length) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center text-white/45">
+      <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center text-white/60">
         <Inbox size={28} />
         <p className="text-sm">No form submissions yet.</p>
-        <p className="max-w-sm text-xs text-white/30">
+        <p className="max-w-sm text-xs text-white/60">
           Fill in and send a form in the preview (contact, booking, newsletter...) and it will show up here.
           Sign in to keep them in the cloud and to receive submissions from the deployed site.
         </p>
@@ -57,7 +57,7 @@ export default function SubmissionsPanel({ projectId, tick }: { projectId: strin
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
         {shown.map((s) => (
           <div key={s.id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
-            <div className="mb-1.5 flex items-center justify-between text-[11px] text-white/40">
+            <div className="mb-1.5 flex items-center justify-between text-xs text-white/60">
               <span>
                 <span className="mr-2 rounded bg-white/10 px-1.5 py-0.5 capitalize text-white/70">{s.form}</span>
                 {new Date(s.createdAt).toLocaleString()} &middot; {s.source}
@@ -68,7 +68,7 @@ export default function SubmissionsPanel({ projectId, tick }: { projectId: strin
                   load();
                 }}
                 title="Delete"
-                className="text-white/30 hover:text-red-400"
+                className="text-white/60 hover:text-red-400"
               >
                 <Trash2 size={13} />
               </button>
@@ -76,7 +76,7 @@ export default function SubmissionsPanel({ projectId, tick }: { projectId: strin
             <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-0.5">
               {Object.entries(s.data).map(([k, v]) => (
                 <div key={k} className="contents">
-                  <dt className="truncate text-white/40">{k}</dt>
+                  <dt className="truncate text-white/60">{k}</dt>
                   <dd className="break-words text-white/85">{String(v)}</dd>
                 </div>
               ))}

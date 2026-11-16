@@ -1,5 +1,7 @@
 "use client";
 
+import { useEscape } from "@/lib/useEscape";
+
 import { useEffect, useState } from "react";
 import { Github, Loader2, ExternalLink } from "lucide-react";
 import { syncToGitHub } from "@/lib/github";
@@ -32,6 +34,7 @@ export default function GitHubSync({
   files: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
+  useEscape(open, () => setOpen(false));
   const [token, setToken] = useState("");
   const [repo, setRepo] = useState("");
   const [create, setCreate] = useState(true);
@@ -107,9 +110,10 @@ export default function GitHubSync({
         onClick={() => setOpen(true)}
         disabled={!hasFiles}
         title="Push to GitHub"
+        aria-label="Push to GitHub"
         className="btn-ghost h-8 px-2.5"
       >
-        <Github size={13} /> GitHub
+        <Github size={14} /> <span className="hidden sm:inline">GitHub</span>
       </button>
 
       {open && (
@@ -119,6 +123,9 @@ export default function GitHubSync({
         >
           <div
             className="w-full max-w-md space-y-3 modal p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Push to GitHub"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -137,13 +144,13 @@ export default function GitHubSync({
             {oauth && (
               <div className="flex items-center justify-between rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
                 <span>Connected as {conn?.github.login || "GitHub user"}</span>
-                <button onClick={() => disconnect("github")} className="text-white/50 hover:text-white">
+                <button onClick={() => disconnect("github")} className="text-white/65 hover:text-white">
                   Disconnect
                 </button>
               </div>
             )}
 
-            <label className="block text-xs text-white/50">
+            <label className="block text-xs text-white/65">
               Repository (owner/name)
               <input
                 list="gh-repos"
@@ -160,7 +167,7 @@ export default function GitHubSync({
             </label>
 
             {needsToken && (
-              <label className="block text-xs text-white/50">
+              <label className="block text-xs text-white/65">
                 Personal access token{" "}
                 <a
                   href="https://github.com/settings/tokens/new?scopes=repo&description=lovable-clone"
@@ -177,12 +184,12 @@ export default function GitHubSync({
                   placeholder="ghp_..."
                   className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none"
                 />
-                <span className="mt-1 block text-white/30">Stored only in this browser.</span>
+                <span className="mt-1 block text-white/60">Stored only in this browser.</span>
               </label>
             )}
 
             {conn?.github.configured && !oauth && (
-              <button onClick={() => setUseToken((v) => !v)} className="text-xs text-white/40 hover:text-white">
+              <button onClick={() => setUseToken((v) => !v)} className="text-xs text-white/60 hover:text-white">
                 {useToken ? "Use Connect GitHub instead" : "Use a token instead"}
               </button>
             )}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEscape } from "@/lib/useEscape";
+
 import { useRef, useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Loader2, RefreshCw, Sparkles, XCircle } from "lucide-react";
 import { healthFixPrompt, probeChecks, score, staticChecks, type Check, type Group, type Probe } from "@/lib/health";
@@ -20,6 +22,7 @@ export default function HealthPanel({
   onAskAI: (prompt: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  useEscape(open, () => setOpen(false));
   const [alignRight, setAlignRight] = useState(false);
   const [checks, setChecks] = useState<Check[] | null>(null);
   const [live, setLive] = useState<boolean>(true);
@@ -52,9 +55,13 @@ export default function HealthPanel({
           if (next) run();
         }}
         title="Check SEO, accessibility, mobile and speed"
-        className={open ? "btn h-8 border border-violet-400/60 bg-violet-500/25 text-violet-100" : "btn-ghost h-8"}
+        className="tool-btn"
+        data-open={open}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label="Site health report"
       >
-        <Activity size={13} /> Health
+        <Activity size={14} /> <span className="tool-label">Health</span>
         {total !== null && !open && <span className={`text-xs font-semibold ${tone(total)}`}>{total}</span>}
       </button>
 
@@ -62,17 +69,19 @@ export default function HealthPanel({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
+            role="dialog"
+            aria-label="Site health report"
             className={`popover absolute top-full z-50 mt-2 max-h-[78vh] w-[360px] max-w-[calc(100vw-24px)] overflow-y-auto p-4 ${
               alignRight ? "right-0" : "left-0"
             }`}
           >
             <div className="flex items-center gap-3">
-              <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 text-xl font-bold ${total === null ? "border-white/15 text-white/30" : `${tone(total)} border-current`}`}>
+              <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 text-xl font-bold ${total === null ? "border-white/15 text-white/60" : `${tone(total)} border-current`}`}>
                 {busy || total === null ? <Loader2 size={18} className="animate-spin" /> : total}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">Site health</div>
-                <div className="text-[11px] leading-snug text-white/40">
+                <div className="text-xs leading-snug text-white/60">
                   {busy ? "Checking the page at phone width..." : problems ? `${problems} thing${problems === 1 ? "" : "s"} to improve` : "Everything checked looks good"}
                 </div>
               </div>
@@ -88,7 +97,7 @@ export default function HealthPanel({
                   if (!items.length) return null;
                   return (
                     <div key={g}>
-                      <div className="mb-1.5 flex items-center justify-between text-[11px] uppercase tracking-wide text-white/40">
+                      <div className="mb-1.5 flex items-center justify-between text-xs uppercase tracking-wide text-white/60">
                         {g}
                         <span className={tone(score(items))}>{score(items)}</span>
                       </div>
@@ -98,7 +107,7 @@ export default function HealthPanel({
                             <span className="mt-0.5 shrink-0">{icon(c.status)}</span>
                             <span className="min-w-0">
                               <span className="text-white/85">{c.label}</span>
-                              {c.detail && <span className="block text-[11px] leading-snug text-white/40">{c.detail}</span>}
+                              {c.detail && <span className="block text-xs leading-snug text-white/60">{c.detail}</span>}
                             </span>
                           </li>
                         ))}
@@ -107,7 +116,7 @@ export default function HealthPanel({
                   );
                 })}
                 {!live && (
-                  <p className="text-[11px] leading-snug text-amber-300/80">
+                  <p className="text-xs leading-snug text-amber-300/80">
                     The live checks (headings, alt text, labels, sideways scrolling) could not run because the preview did not respond. Only the checks from the code are shown.
                   </p>
                 )}
