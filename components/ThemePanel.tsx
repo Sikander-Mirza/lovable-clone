@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Palette } from "lucide-react";
-import { BRAND_PRESETS, FONTS, parseTheme, type Theme } from "@/lib/theme";
+import { Moon, Palette } from "lucide-react";
+import { BRAND_PRESETS, DARK_MODE_PROMPT, FONTS, parseTheme, type Theme } from "@/lib/theme";
 
 /** Toolbar button + popover to restyle the whole site: brand color and fonts. */
 export default function ThemePanel({
   files,
   onChange,
+  onAskAI,
 }: {
   files: Record<string, string>;
   onChange: (theme: Theme) => void;
+  onAskAI?: (prompt: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const current = parseTheme(files);
@@ -99,6 +101,19 @@ export default function ThemePanel({
                 ))}
               </select>
             </label>
+
+            {onAskAI && Object.keys(files).length > 0 && (
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  onAskAI(DARK_MODE_PROMPT);
+                }}
+                className="btn h-8 w-full border border-white/10 text-xs"
+                title="The AI adds a sun/moon switch and a dark look to every section"
+              >
+                <Moon size={13} /> Add a light/dark switch
+              </button>
+            )}
 
             <p className="text-[11px] leading-snug text-white/35">
               Applies to the whole site. Works on parts that use the brand color and default fonts; elements

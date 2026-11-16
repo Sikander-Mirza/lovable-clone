@@ -97,6 +97,7 @@ const q = (f: string) => `'${f}', ui-sans-serif, system-ui, sans-serif`;
 /** JS expression for tailwind.config (Play CDN and the exported tailwind.config.js). */
 export function tailwindConfig(t: Theme) {
   return {
+    darkMode: "class",
     theme: {
       extend: {
         colors: { brand: brandScale(t.brand) },
@@ -112,3 +113,7 @@ export function fontsHref(t: Theme): string {
     .join("&");
   return `https://fonts.googleapis.com/css2?${fams}&display=swap`;
 }
+
+/** Chat request that adds a light/dark switch to the site. */
+export const DARK_MODE_PROMPT =
+  "Add a light/dark mode switch to the site. Put a small sun/moon toggle button in the navbar that adds or removes the \"dark\" class on document.documentElement and remembers the choice in localStorage (and starts from the visitor's system preference). Give every section both looks with Tailwind dark: classes (backgrounds, text, borders, cards) while keeping the brand color and good contrast. Do not change the content.";

@@ -25,3 +25,10 @@ test("tailwind config and font link reflect the theme", () => {
   assert.match(fontsHref(t), /family=Poppins/);
   assert.match(fontsHref(t), /family=Playfair\+Display/);
 });
+
+import { DARK_MODE_PROMPT } from "../lib/theme";
+
+test("tailwind runs in class dark mode and the dark-mode request mentions the toggle", () => {
+  assert.equal((tailwindConfig(parseTheme({})) as any).darkMode, "class");
+  assert.match(DARK_MODE_PROMPT, /localStorage/);
+});

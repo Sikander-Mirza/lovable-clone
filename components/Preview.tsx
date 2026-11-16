@@ -342,7 +342,7 @@ export default function Preview({
         )}
         {tab === "preview" && paths.length > 0 && onThemeChange && (
           <div className="ml-1">
-            <ThemePanel files={files} onChange={onThemeChange} />
+            <ThemePanel files={files} onChange={onThemeChange} onAskAI={onAskAI} />
           </div>
         )}
         {tab === "preview" && paths.length > 0 && onFilesChange && !editDisabled && (
