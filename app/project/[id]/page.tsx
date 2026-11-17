@@ -1,5 +1,6 @@
 "use client";
 
+import ShareButton from "@/components/ShareButton";
 import { splitNotice } from "@/lib/notice";
 import { useMediaQuery } from "@/lib/useMedia";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -549,6 +550,7 @@ export default function ProjectPage() {
           >
             <Download size={14} /> <span className="hidden md:inline">Download</span>
           </button>
+          <ShareButton project={project} />
           <GitHubSync projectId={project.id} name={project.name} files={project.files} />
           <DeployButton projectId={project.id} name={project.name} files={project.files} />
         </div>

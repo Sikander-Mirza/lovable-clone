@@ -131,3 +131,9 @@ Pick a language in **Site**. Urdu, Arabic, Persian and Hebrew set `dir="rtl"` an
 
 ## Multi-page sites
 Ask for separate pages ("Home, Menu, About and Contact pages") and the AI uses react-router with one file per page in `/pages`. A page dropdown appears in the preview toolbar to jump between pages; the exported site keeps real routing.
+
+## Read-only share links
+
+The **Share** button in the editor header creates a link like `/s/k3j9x0a8bz` that anyone can open to view the site (not edit it). The link shows a snapshot, so press "Update with latest changes" after you edit; "Stop sharing" turns it off. Forms on a shared site save to your Data tab.
+
+Setup: run the new `shares` section of `supabase/schema.sql` in the Supabase SQL editor (safe to re-run), and sign in. The table is private to its owner and the public page reads one share at a time through the `get_share()` function, so other shares cannot be listed.
