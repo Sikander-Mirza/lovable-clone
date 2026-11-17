@@ -26,10 +26,11 @@ function Bridge() {
     addEventListener("message", on);
     return () => removeEventListener("message", on);
   }, [nav]);
-  React.useEffect(() => { parent.postMessage({ type: "route", path: loc.pathname }, "*"); }, [loc.pathname]);
+  React.useEffect(() => { window.__lvRoute = loc.pathname; parent.postMessage({ type: "route", path: loc.pathname }, "*"); }, [loc.pathname]);
   return null;
 }
-function Router(p) { return React.createElement(MemoryRouter, p, React.createElement(Bridge), p.children); }
+// Hot updates remount the tree: start again on the page the visitor was on.
+function Router(p) { return React.createElement(MemoryRouter, { initialEntries: [window.__lvRoute || "/"], ...p }, React.createElement(Bridge), p.children); }
 export { Router as BrowserRouter, Router as HashRouter };`
   );
 

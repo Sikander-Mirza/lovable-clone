@@ -1,5 +1,6 @@
 "use client";
 
+import PopoverClose from "./PopoverClose";
 import { useEscape } from "@/lib/useEscape";
 
 import { useRef, useState } from "react";
@@ -134,6 +135,7 @@ export default function HealthPanel({
                 <Sparkles size={14} /> Fix {problems} thing{problems === 1 ? "" : "s"} with AI
               </button>
             )}
+            <PopoverClose onClose={() => setOpen(false)} />
           </div>
         </>
       )}

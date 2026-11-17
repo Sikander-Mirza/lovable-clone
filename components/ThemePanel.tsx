@@ -1,5 +1,6 @@
 "use client";
 
+import PopoverClose from "./PopoverClose";
 import { useEscape } from "@/lib/useEscape";
 
 import { useEffect, useRef, useState } from "react";
@@ -125,6 +126,7 @@ export default function ThemePanel({
               Applies to the whole site. Works on parts that use the brand color and default fonts; elements
               with a fixed color keep it (change those with Edit).
             </p>
+            <PopoverClose onClose={() => setOpen(false)} />
           </div>
         </>
       )}

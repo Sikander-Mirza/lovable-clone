@@ -16,6 +16,7 @@ import {
   type Project,
 } from "@/lib/store";
 import { flowText } from "@/lib/flow";
+import { THEME_PATH, brandScale, parseTheme } from "@/lib/theme";
 import { TEMPLATES } from "@/lib/templates";
 
 // A stable gradient per project, so cards are easy to tell apart at a glance.
@@ -28,6 +29,15 @@ const GRADIENTS = [
   "from-cyan-500 to-blue-500",
 ];
 const gradientFor = (id: string) => GRADIENTS[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % GRADIENTS.length];
+
+/** Projects with a theme get a badge in their own brand color, so cards look like the sites they hold. */
+const badgeStyle = (p: Project) =>
+  p.files[THEME_PATH]
+    ? (() => {
+        const sc = brandScale(parseTheme(p.files).brand);
+        return { backgroundImage: `linear-gradient(135deg, ${sc["400"]}, ${sc["700"]})` };
+      })()
+    : undefined;
 
 const ago = (t: number) => {
   const m = Math.round((Date.now() - t) / 60000);
@@ -304,6 +314,7 @@ export default function Home() {
                   className="group flex items-center gap-3 rounded-2xl border border-white/[.08] bg-white/[.03] p-3.5 transition hover:border-white/20 hover:bg-white/[.06]"
                 >
                   <span
+                    style={badgeStyle(p)}
                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-base font-bold uppercase text-white shadow-lg shadow-black/30 ${gradientFor(p.id)}`}
                   >
                     {(p.name.replace(/^https?:\/\/(www\.)?/, "")[0] || "?").toUpperCase()}

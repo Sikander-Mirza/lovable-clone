@@ -1,5 +1,6 @@
 "use client";
 
+import PopoverClose from "./PopoverClose";
 import { useEscape } from "@/lib/useEscape";
 
 import { useEffect, useRef, useState } from "react";
@@ -169,6 +170,7 @@ export default function SitePanel({
                 </div>
               )}
             </div>
+            <PopoverClose onClose={() => setOpen(false)} />
           </div>
         </>
       )}

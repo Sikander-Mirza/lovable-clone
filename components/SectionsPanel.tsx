@@ -1,5 +1,6 @@
 "use client";
 
+import PopoverClose from "./PopoverClose";
 import { useEscape } from "@/lib/useEscape";
 
 import { useRef, useState } from "react";
@@ -169,6 +170,7 @@ export default function SectionsPanel({
             <p className="mt-2.5 px-1 text-xs leading-snug text-white/60">
               Library sections use your brand color and can be edited with the Edit tool or the chat.
             </p>
+            <PopoverClose onClose={() => setOpen(false)} />
           </div>
         </>
       )}
