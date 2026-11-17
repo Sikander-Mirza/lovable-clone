@@ -20,6 +20,7 @@ import {
 import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
+import CodeView from "./CodeView";
 import ThemePanel from "./ThemePanel";
 import { listRoutes } from "@/lib/routes";
 import SitePanel from "./SitePanel";
@@ -512,27 +513,7 @@ export default function Preview({
               />
             </div>
             {tab === "data" && <SubmissionsPanel projectId={projectId} tick={subTick} />}
-            {tab === "code" && (
-              <div className="flex h-full">
-                <div className="w-56 shrink-0 overflow-y-auto border-r border-white/10 p-2 text-sm">
-                  {paths.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setSelected(p)}
-                      aria-current={p === current ? "true" : undefined}
-                      className={`block w-full truncate rounded px-2 py-1 text-left ${
-                        p === current ? "bg-white/10 text-white" : "text-white/60 hover:text-white"
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-                <pre className="min-w-0 flex-1 overflow-auto p-4 text-xs leading-relaxed text-white/80">
-                  {current ? files[current] : ""}
-                </pre>
-              </div>
-            )}
+            {tab === "code" && <CodeView files={files} paths={paths} current={current} onSelect={setSelected} />}
           </>
         )}
       </div>

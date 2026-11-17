@@ -1,5 +1,6 @@
 "use client";
 
+import ShortcutsDialog from "@/components/ShortcutsDialog";
 import ShareButton from "@/components/ShareButton";
 import { splitNotice } from "@/lib/notice";
 import { useMediaQuery } from "@/lib/useMedia";
@@ -550,6 +551,7 @@ export default function ProjectPage() {
           >
             <Download size={14} /> <span className="hidden md:inline">Download</span>
           </button>
+          <ShortcutsDialog />
           <ShareButton project={project} />
           <GitHubSync projectId={project.id} name={project.name} files={project.files} />
           <DeployButton projectId={project.id} name={project.name} files={project.files} />

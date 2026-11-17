@@ -39,6 +39,13 @@ const badgeStyle = (p: Project) =>
       })()
     : undefined;
 
+const EXAMPLES = [
+  "A landing page for a specialty coffee roastery",
+  "Portfolio for a freelance photographer with 3 pages",
+  "Website for a dental clinic in Urdu",
+  "A habit tracker with streaks",
+];
+
 const ago = (t: number) => {
   const m = Math.round((Date.now() - t) / 60000);
   if (m < 1) return "just now";
@@ -246,7 +253,15 @@ export default function Home() {
         <p className="mt-3 max-w-3xl text-center text-xs text-white/60" aria-live="polite">
           {flowText(askFirst, planFirst, autoExpand)}
         </p>
-        <p className="mt-1 text-xs text-white/60">Press Enter to start · Shift+Enter for a new line · paste or drop an image for a reference</p>
+        <div className="mt-4 flex max-w-3xl flex-wrap items-center justify-center gap-2" aria-label="Example prompts">
+          <span className="text-xs text-white/60">Try:</span>
+          {EXAMPLES.map((ex) => (
+            <button key={ex} type="button" onClick={() => setPrompt(ex)} className="chip">
+              {ex}
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-white/60">Press Enter to start · Shift+Enter for a new line · paste or drop an image for a reference</p>
 
         {/* How it works */}
         <ol className="mt-16 grid w-full gap-3 sm:grid-cols-3" aria-label="How it works">
