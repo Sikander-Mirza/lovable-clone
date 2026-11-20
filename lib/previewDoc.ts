@@ -165,6 +165,34 @@ async function run() {
 run();
 parent.postMessage({ type: "preview-shell" }, "*");
 
+// The builder asks for a small screenshot of the home page (for the project cards).
+window.addEventListener("message", async (e) => {
+  const d = e.data;
+  if (e.source !== parent || !d || d.type !== "capture") return;
+  if (window.__lvRoute && window.__lvRoute !== "/") return;
+  const y = window.scrollY;
+  try {
+    if (!window.htmlToImage) {
+      await new Promise((res, rej) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js";
+        s.onload = res;
+        s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    window.scrollTo(0, 0);
+    const W = Math.max(320, window.innerWidth), H = Math.min(window.innerHeight, Math.round(W * 0.625));
+    const data = await window.htmlToImage.toJpeg(document.body, { quality: 0.6, pixelRatio: 320 / W, width: W, height: H, skipFonts: true, backgroundColor: "#ffffff" });
+    parent.postMessage({ type: "thumbnail", data }, "*");
+  } catch (err) {
+    /* best effort: cards fall back to the colored badge */
+    parent.postMessage({ type: "thumbnail-error", message: String(err && err.message || err) }, "*");
+  } finally {
+    window.scrollTo(0, y);
+  }
+});
+
 // Live updates while the AI is writing: swap the files and re-render in place, so the page never reloads (no white flash).
 window.addEventListener("message", (e) => {
   const d = e.data;

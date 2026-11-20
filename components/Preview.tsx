@@ -20,6 +20,7 @@ import {
 import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
+import { setThumb } from "@/lib/thumb";
 import CodeView from "./CodeView";
 import ThemePanel from "./ThemePanel";
 import { listRoutes } from "@/lib/routes";
@@ -125,6 +126,8 @@ export default function Preview({
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [everReady, building, nonce]);
+  const thumbTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(thumbTimer.current), []);
   const onRuntimeErrorRef = useRef(onRuntimeError);
   onRuntimeErrorRef.current = onRuntimeError;
   const undoRef = useRef(onUndo);
@@ -281,6 +284,14 @@ export default function Preview({
         setError(null);
       }
       if (d?.type === "preview-ready" || d?.type === "preview-error") setEverReady(true);
+      if (d?.type === "thumbnail") setThumb(projectId, d.data);
+      if (d?.type === "preview-ready") {
+        // A few seconds after the page settles (and never while the AI is writing), refresh the card thumbnail.
+        clearTimeout(thumbTimer.current);
+        thumbTimer.current = setTimeout(() => {
+          if (!buildingRef.current) post({ type: "capture" });
+        }, 4000);
+      }
       if (d?.type === "preview-ready") {
         post({ type: "mode", on: editModeRef.current });
         // After an insert, the preview reloads; re-select the element that was just added.

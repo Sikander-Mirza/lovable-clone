@@ -15,6 +15,7 @@ import {
   renameProject,
   type Project,
 } from "@/lib/store";
+import { clearThumb, getThumb } from "@/lib/thumb";
 import { flowText } from "@/lib/flow";
 import { THEME_PATH, brandScale, parseTheme } from "@/lib/theme";
 import { TEMPLATES } from "@/lib/templates";
@@ -328,12 +329,21 @@ export default function Home() {
                   key={p.id}
                   className="group flex items-center gap-3 rounded-2xl border border-white/[.08] bg-white/[.03] p-3.5 transition hover:border-white/20 hover:bg-white/[.06]"
                 >
+                  {getThumb(p.id) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={getThumb(p.id)!}
+                      alt=""
+                      className="h-11 w-[70px] shrink-0 rounded-lg border border-white/10 object-cover object-top shadow-lg shadow-black/30"
+                    />
+                  ) : (
                   <span
-                    style={badgeStyle(p)}
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-base font-bold uppercase text-white shadow-lg shadow-black/30 ${gradientFor(p.id)}`}
-                  >
-                    {(p.name.replace(/^https?:\/\/(www\.)?/, "")[0] || "?").toUpperCase()}
-                  </span>
+                      style={badgeStyle(p)}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-base font-bold uppercase text-white shadow-lg shadow-black/30 ${gradientFor(p.id)}`}
+                    >
+                      {(p.name.replace(/^https?:\/\/(www\.)?/, "")[0] || "?").toUpperCase()}
+                    </span>
+                  )}
                   {renaming === p.id ? (
                     <input
                       autoFocus
@@ -387,6 +397,7 @@ export default function Home() {
                       onClick={async () => {
                         if (!confirm(`Delete "${p.name}"? This can't be undone.`)) return;
                         await deleteProject(p.id);
+                        clearThumb(p.id);
                         refresh();
                       }}
                       title="Delete"
