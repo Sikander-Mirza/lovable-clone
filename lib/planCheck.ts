@@ -28,13 +28,53 @@ function isFeatureWidget(component: string, features: string[]): boolean {
   });
 }
 
-export type PlanProblems = { extra: string[]; missing: string[] };
+export type PlanProblems = { extra: string[]; missing: string[]; missingPages?: string[] };
 
-/** Returns null when the check does not apply (multi-page sites are not checked). */
+const baseName = (path: string) => (path.split("/").pop() ?? "").replace(/\.jsx?$/, "");
+
+/** Names imported from local files (./ or ../): the page's own sections, not icons or libraries. */
+function localImports(src: string): Set<string> {
+  return new Set([...src.matchAll(/import\s+(\w+)\s+from\s+["']\.{1,2}\/[^"']*["']/g)].map((m) => m[1]));
+}
+
+/**
+ * Multi-page plans: each page's file (/pages/<Page>.js) must render that page's planned sections
+ * and nothing else. Skipped when the site is not built with a /pages folder.
+ */
+function checkPages(files: Record<string, string>, plan: Plan): PlanProblems | null {
+  const pageFiles = Object.keys(files).filter((f) => /^\/pages\/.+\.jsx?$/.test(f));
+  if (!pageFiles.length) return null;
+  const componentFiles = Object.keys(files).filter((f) => /^\/components\/.+\.jsx?$/.test(f)).map(baseName);
+  const out: PlanProblems = { extra: [], missing: [], missingPages: [] };
+
+  for (const page of plan.pages) {
+    const wanted = plan.sections.filter((s) => s.include && (s.page || plan.pages[0]) === page).map((s) => s.title);
+    if (!wanted.length) continue;
+    const file = pageFiles.find((f) => matches(baseName(f), page));
+    if (!file) {
+      out.missingPages!.push(page);
+      continue;
+    }
+    const local = localImports(files[file]);
+    const rendered = renderedComponents(files[file]).filter((c) => local.has(c) && !LAYOUT.test(norm(c)));
+    for (const c of rendered) {
+      if (!wanted.some((t) => matches(c, t)) && !isFeatureWidget(c, plan.features)) out.extra.push(`${c} (on ${page})`);
+    }
+    for (const t of wanted) {
+      // A section may also be written inline in the page file, so a component file counts too.
+      const present = rendered.some((c) => matches(c, t)) || componentFiles.some((c) => matches(c, t));
+      if (!present) out.missing.push(`${t} (on ${page})`);
+    }
+  }
+  return out.extra.length || out.missing.length || out.missingPages!.length ? out : null;
+}
+
+/** Returns null when the plan was followed or the check does not apply. */
 export function checkPlan(files: Record<string, string>, plan: Plan): PlanProblems | null {
-  if (plan.kind !== "site" || plan.pages.length > 1) return null;
+  if (plan.kind !== "site") return null;
+  if (plan.pages.length > 1) return checkPages(files, plan);
   const app = files["/App.js"];
-  // Multi-route sites are not checked. A router wrapper around a single page is fine.
+  // Single-page: a router wrapper around one page is fine, several routes are not judged here.
   if (!app || /<Routes\b|<Route\b/.test(app)) return null;
 
   const rendered = renderedComponents(app).filter((c) => !LAYOUT.test(norm(c)));
@@ -52,6 +92,11 @@ export function planFixPrompt(p: PlanProblems): string {
   if (p.extra.length) {
     lines.push(
       `- Sections that are NOT in the plan and must be removed: ${p.extra.join(", ")}. Stop rendering them in /App.js and delete their files with <delete path="..."/>.`
+    );
+  }
+  if (p.missingPages?.length) {
+    lines.push(
+      `- Planned pages that are missing: ${p.missingPages.join(", ")}. Create each as /pages/<PascalCaseName>.js with its planned sections and add a <Route> for it in /App.js.`
     );
   }
   if (p.missing.length) {

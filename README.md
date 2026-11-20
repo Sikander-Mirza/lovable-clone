@@ -137,3 +137,21 @@ Ask for separate pages ("Home, Menu, About and Contact pages") and the AI uses r
 The **Share** button in the editor header creates a link like `/s/k3j9x0a8bz` that anyone can open to view the site (not edit it). The link shows a snapshot, so press "Update with latest changes" after you edit; "Stop sharing" turns it off. Forms on a shared site save to your Data tab.
 
 Setup: run the new `shares` section of `supabase/schema.sql` in the Supabase SQL editor (safe to re-run), and sign in. The table is private to its owner and the public page reads one share at a time through the `get_share()` function, so other shares cannot be listed.
+
+## Mobile layout
+Below 768px the editor shows one pane at a time with a bottom **Chat | Preview** bar (a dot on Preview means the AI is still building). The toolbar's design tools (Edit, Theme, Sections, Site, Health) shrink to icons in narrow panes.
+
+## Code tab
+Read-only source viewer with line numbers, a line/size summary and a **Copy** button. On phones the file list becomes a dropdown (`components/CodeView.tsx`).
+
+## Keyboard shortcuts
+Press `?` (outside a text field) or click the keyboard icon in the editor header: Enter sends, Shift+Enter adds a line, Ctrl+Z / Ctrl+Shift+Z undo and redo, Esc closes panels and leaves full preview.
+
+## Project thumbnails
+A few seconds after a project's home page settles (never while the AI is writing), the preview takes a small screenshot of itself with `html-to-image` (loaded from cdnjs inside the sandboxed iframe) and the home page shows it on the project card. Thumbnails are kept in this browser only (`lovable-clone:thumb:<id>`, about 15 KB each, see `lib/thumb.ts`); if the script cannot load, the card keeps its colored badge.
+
+## Backup-model notice
+When the main model is busy and a backup model answers, the chat shows an amber banner ("a backup model is answering, results may be rougher"). The server sends it as a first `[notice] ...` line in the stream, which `lib/notice.ts` splits off before the reply is parsed.
+
+## Plan check on multi-page sites
+After the first build from an approved plan, `lib/planCheck.ts` compares the result with it. For multi-page plans it looks at `/pages/<Page>.js`: every ticked section of a page must be rendered there (or exist as a component), no unplanned section may appear, and every planned page must exist. If something is off, one automatic fix pass is sent. Sites that are not built with a `/pages` folder are not judged.

@@ -37,6 +37,7 @@ test("an unticked section that was built anyway counts as extra, a missing one i
 test("multi-page and routed sites are not checked", () => {
   const files = { "/App.js": "import { Routes } from 'react-router-dom'; export default () => <Routes/>" };
   assert.equal(checkPlan(files, plan), null);
+  // A multi-page plan on a site without a /pages folder is not judged.
   assert.equal(checkPlan({ "/App.js": app("Hero", "Pricing") }, { ...plan, pages: ["Home", "About"] }), null);
 });
 
@@ -63,4 +64,52 @@ test("<delete> is parsed, hidden from the prose, and never removes App.js or the
   assert.equal(r.text, "Removing it.");
   const out = applyDeletes({ "/App.js": "a", "/components/FAQ.js": "b", "/theme.json": "{}" }, r.deletes);
   assert.deepEqual(Object.keys(out).sort(), ["/App.js", "/theme.json"]);
+});
+
+const multi: Plan = {
+  ...plan,
+  pages: ["Home", "Menu"],
+  features: [],
+  sections: [
+    { ...sec("Hero"), page: "Home" },
+    { ...sec("Highlights"), page: "Home" },
+    { ...sec("Bread"), page: "Menu" },
+  ],
+};
+const page = (imports: string[], icons: string[] = []) =>
+  [
+    ...imports.map((c) => `import ${c} from "../components/${c}";`),
+    `import { ${icons.join(", ")} } from "lucide-react";`,
+    `export default function P(){ return <div>${[...imports, ...icons].map((c) => `<${c} />`).join("")}</div> }`,
+  ].join("\n");
+
+test("multi-page: pages that render their planned sections pass, icons are ignored", () => {
+  const files = {
+    "/App.js": "export default function App(){ return <Routes/> }",
+    "/pages/Home.js": page(["Hero", "Highlights"], ["ArrowRight"]),
+    "/pages/Menu.js": page(["Bread"]),
+  };
+  assert.equal(checkPlan(files, multi), null);
+});
+
+test("multi-page: an extra section, a missing section and a missing page are reported with their page", () => {
+  const r = checkPlan(
+    { "/pages/Home.js": page(["Hero", "Newsletter"]) },
+    multi
+  )!;
+  assert.deepEqual(r.extra, ["Newsletter (on Home)"]);
+  assert.deepEqual(r.missing, ["Highlights (on Home)"]); // Bread is covered by the missing Menu page
+  assert.deepEqual(r.missingPages, ["Menu"]);
+  const t = planFixPrompt(r);
+  assert.match(t, /Planned pages that are missing: Menu/);
+  assert.match(t, /Newsletter \(on Home\)/);
+});
+
+test("multi-page: a section written inline in the page file counts when its component file exists", () => {
+  const files = {
+    "/pages/Home.js": page(["Hero"]),
+    "/components/Highlights.js": "export default function H(){return null}",
+    "/pages/Menu.js": page(["Bread"]),
+  };
+  assert.equal(checkPlan(files, multi), null);
 });
