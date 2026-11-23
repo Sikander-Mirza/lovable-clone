@@ -23,3 +23,16 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+      - name: Install Chromium for end-to-end tests
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests (AI mocked)
+        run: npm run e2e
+        env:
+          CI: "true"
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results
+          retention-days: 7

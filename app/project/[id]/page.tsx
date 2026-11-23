@@ -3,7 +3,6 @@
 import ShortcutsDialog from "@/components/ShortcutsDialog";
 import ShareButton from "@/components/ShareButton";
 import { splitNotice } from "@/lib/notice";
-import { useMediaQuery } from "@/lib/useMedia";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -41,7 +40,6 @@ export default function ProjectPage() {
   // Width of the chat panel (user-resizable, remembered in this browser).
   const [chatWidth, setChatWidth] = useState(400);
   const [resizing, setResizing] = useState(false);
-  const isMobile = useMediaQuery("(max-width: 767px)");
   const [modelNotice, setModelNotice] = useState<string | null>(null);
   const [pane, setPane] = useState<"chat" | "preview">("chat");
   useEffect(() => {
@@ -533,8 +531,13 @@ export default function ProjectPage() {
           </button>
         )}
         {busy && (
-          <span className="ml-1 flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-500/10 px-2.5 py-0.5 text-xs text-violet-200">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" /> Working
+          <span
+            role="status"
+            aria-label="Working"
+            className="ml-1 flex shrink-0 items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-xs text-violet-200 sm:px-2.5"
+          >
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" />
+            <span className="hidden sm:inline">Working</span>
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -560,10 +563,12 @@ export default function ProjectPage() {
 
       <div className="flex min-h-0 flex-1">
       <aside
-        style={isMobile ? undefined : { width: chatWidth }}
-        className={`flex-col bg-[#0b0b11] ${isMobile ? "min-w-0 flex-1" : "shrink-0"} ${
-          focus || (isMobile && pane !== "chat") ? "hidden" : "flex"
-        }`}
+        style={{ "--chat-w": `${chatWidth}px` } as React.CSSProperties}
+        // Pure CSS, so a phone never flashes the desktop layout before JS runs: full width below md,
+        // the resizable width from md up, and only the chosen pane (chat or preview) on phones.
+        className={`min-w-0 flex-1 flex-col bg-[#0b0b11] md:w-[var(--chat-w)] md:flex-none md:shrink-0 ${
+          pane !== "chat" ? "max-md:hidden" : ""
+        } ${focus ? "hidden" : "flex"}`}
       >
         <div className="min-h-0 flex-1">
           <Chat
@@ -594,13 +599,13 @@ export default function ProjectPage() {
         onDoubleClick={() => setChatWidth(400)}
         title="Drag to resize (double-click to reset)"
         className={`group relative z-10 w-1.5 shrink-0 cursor-col-resize bg-white/[.06] transition hover:bg-violet-400/50 ${
-          focus || isMobile ? "hidden" : ""
+          focus ? "hidden" : "max-md:hidden"
         }`}
       >
         <span className="absolute left-1/2 top-1/2 h-8 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20 group-hover:bg-white/60" />
       </div>
       {resizing && <div className="fixed inset-0 z-50 cursor-col-resize" />}
-      <main id="main" className={`min-w-0 flex-1 ${isMobile && pane !== "preview" && !focus ? "hidden" : ""}`}>
+      <main id="main" className={`min-w-0 flex-1 ${pane !== "preview" && !focus ? "max-md:hidden" : ""}`}>
         <Preview
           files={liveFiles}
           projectId={project.id}
@@ -632,8 +637,8 @@ export default function ProjectPage() {
       </main>
       </div>
       {/* Phones: one pane at a time, switched from the bottom */}
-      {isMobile && !focus && (
-        <nav aria-label="Switch between chat and preview" className="grid shrink-0 grid-cols-2 border-t border-white/[.08] bg-[#0a0a10] pb-[env(safe-area-inset-bottom)]">
+      {!focus && (
+        <nav aria-label="Switch between chat and preview" className="grid md:hidden shrink-0 grid-cols-2 border-t border-white/[.08] bg-[#0a0a10] pb-[env(safe-area-inset-bottom)]">
           {(
             [
               ["chat", MessageSquare, "Chat"],
