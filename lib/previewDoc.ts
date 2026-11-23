@@ -169,7 +169,8 @@ parent.postMessage({ type: "preview-shell" }, "*");
 window.addEventListener("message", async (e) => {
   const d = e.data;
   if (e.source !== parent || !d || d.type !== "capture") return;
-  if (window.__lvRoute && window.__lvRoute !== "/") return;
+  const review = d.mode === "review"; // a tall screenshot for the AI's visual review, of whatever page is showing
+  if (!review && window.__lvRoute && window.__lvRoute !== "/") return;
   const y = window.scrollY;
   try {
     if (!window.htmlToImage) {
@@ -182,12 +183,19 @@ window.addEventListener("message", async (e) => {
       });
     }
     window.scrollTo(0, 0);
-    const W = Math.max(320, window.innerWidth), H = Math.min(window.innerHeight, Math.round(W * 0.625));
-    const data = await window.htmlToImage.toJpeg(document.body, { quality: 0.6, pixelRatio: 320 / W, width: W, height: H, skipFonts: true, backgroundColor: "#ffffff" });
-    parent.postMessage({ type: "thumbnail", data }, "*");
+    const W = Math.max(320, window.innerWidth);
+    if (review) {
+      const H = Math.min(Math.max(document.documentElement.scrollHeight, window.innerHeight), 3200);
+      const data = await window.htmlToImage.toJpeg(document.body, { quality: 0.7, pixelRatio: Math.min(1, 900 / W), width: W, height: H, skipFonts: true, backgroundColor: "#ffffff" });
+      parent.postMessage({ type: "review-shot", id: d.id, data }, "*");
+    } else {
+      const H = Math.min(window.innerHeight, Math.round(W * 0.625));
+      const data = await window.htmlToImage.toJpeg(document.body, { quality: 0.6, pixelRatio: 320 / W, width: W, height: H, skipFonts: true, backgroundColor: "#ffffff" });
+      parent.postMessage({ type: "thumbnail", data }, "*");
+    }
   } catch (err) {
-    /* best effort: cards fall back to the colored badge */
-    parent.postMessage({ type: "thumbnail-error", message: String(err && err.message || err) }, "*");
+    /* best effort: cards fall back to the colored badge; a review continues without this shot */
+    parent.postMessage({ type: review ? "review-shot" : "thumbnail-error", id: d.id, data: null, message: String(err && err.message || err) }, "*");
   } finally {
     window.scrollTo(0, y);
   }

@@ -20,6 +20,7 @@ import {
 import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
+import { isReviewShot } from "@/lib/review";
 import { setThumb } from "@/lib/thumb";
 import CodeView from "./CodeView";
 import ThemePanel from "./ThemePanel";
@@ -87,7 +88,7 @@ export default function Preview({
   /** Called with the whole new file set when sections are reordered, hidden, removed or added. */
   onFilesChange?: (files: Record<string, string>) => void;
   /** Sends a request to the AI as if the user had typed it (used by the health report). */
-  onAskAI?: (prompt: string) => void;
+  onAskAI?: (prompt: string, images?: string[], label?: string) => void;
   projectName?: string;
   /** Full preview mode (chat and top bar hidden). */
   focusMode?: boolean;
@@ -178,6 +179,42 @@ export default function Preview({
     });
     setDevice(before);
     return result;
+  };
+
+  // Visual review: screenshot the whole page at desktop width, then at phone width, then restore the device.
+  const captureReview = async (): Promise<string[]> => {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const before = device;
+    const shoot = (): Promise<string | null> =>
+      new Promise((resolve) => {
+        const id = Math.random().toString(36).slice(2);
+        const done = (v: string | null) => {
+          clearTimeout(timer);
+          window.removeEventListener("message", onMsg);
+          resolve(v);
+        };
+        const onMsg = (e: MessageEvent) => {
+          if (e.source !== frame.current?.contentWindow || e.data?.type !== "review-shot" || e.data.id !== id) return;
+          done(isReviewShot(e.data.data) ? e.data.data : null);
+        };
+        const timer = setTimeout(() => done(null), 25000);
+        window.addEventListener("message", onMsg);
+        post({ type: "capture", mode: "review", id });
+      });
+    const shots: string[] = [];
+    try {
+      setDevice("desktop");
+      await sleep(900);
+      const a = await shoot();
+      if (a) shots.push(a);
+      setDevice("mobile");
+      await sleep(1100);
+      const b = await shoot();
+      if (b) shots.push(b);
+    } finally {
+      setDevice(before);
+    }
+    return shots;
   };
 
   // Remember whether a run started on an empty project; clear it when the run ends.
@@ -458,7 +495,7 @@ export default function Preview({
           <SitePanel files={files} projectName={projectName ?? ""} onChange={onSiteChange} onAskAI={onAskAI} />
         )}
         {tab === "preview" && paths.length > 0 && onAskAI && !editDisabled && (
-          <HealthPanel files={files} runProbe={runProbe} onAskAI={onAskAI} />
+          <HealthPanel files={files} runProbe={runProbe} captureReview={captureReview} onAskAI={onAskAI} />
         )}
           </div>
         </div>

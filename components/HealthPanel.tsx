@@ -4,7 +4,8 @@ import PopoverClose from "./PopoverClose";
 import { useEscape } from "@/lib/useEscape";
 
 import { useRef, useState } from "react";
-import { Activity, AlertTriangle, CheckCircle2, Loader2, RefreshCw, Sparkles, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Eye, Loader2, RefreshCw, Sparkles, XCircle } from "lucide-react";
+import { visualReviewPrompt } from "@/lib/review";
 import { healthFixPrompt, probeChecks, score, staticChecks, type Check, type Group, type Probe } from "@/lib/health";
 
 const GROUPS: Group[] = ["SEO", "Accessibility", "Mobile", "Speed"];
@@ -15,12 +16,15 @@ const tone = (n: number) => (n >= 85 ? "text-emerald-400" : n >= 60 ? "text-ambe
 export default function HealthPanel({
   files,
   runProbe,
+  captureReview,
   onAskAI,
 }: {
   files: Record<string, string>;
   /** Measures the running preview at phone width; resolves null if it could not. */
   runProbe: () => Promise<Probe | null>;
-  onAskAI: (prompt: string) => void;
+  /** Screenshots of the preview (desktop, then phone) for the visual review; resolves [] on failure. */
+  captureReview?: () => Promise<string[]>;
+  onAskAI: (prompt: string, images?: string[], label?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   useEscape(open, () => setOpen(false));
@@ -29,6 +33,19 @@ export default function HealthPanel({
   const [live, setLive] = useState<boolean>(true);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewError, setReviewError] = useState(false);
+
+  const startReview = async () => {
+    if (!captureReview) return;
+    setReviewing(true);
+    setReviewError(false);
+    const shots = await captureReview();
+    setReviewing(false);
+    if (!shots.length) return setReviewError(true);
+    setOpen(false);
+    onAskAI(visualReviewPrompt(shots.length), shots, "Visual design review of my site (screenshots attached)");
+  };
 
   const run = async () => {
     setBusy(true);
@@ -134,6 +151,22 @@ export default function HealthPanel({
               >
                 <Sparkles size={14} /> Fix {problems} thing{problems === 1 ? "" : "s"} with AI
               </button>
+            )}
+            {captureReview && (
+              <div className="mt-4 border-t border-white/10 pt-3">
+                <button onClick={startReview} disabled={reviewing || busy} className="btn-ghost h-9 w-full text-sm">
+                  {reviewing ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
+                  {reviewing ? "Taking screenshots…" : "Visual review with AI"}
+                </button>
+                <p className="mt-1.5 text-xs leading-snug text-white/60">
+                  The AI looks at screenshots of your site (desktop and phone) and fixes layout problems the code checks cannot see.
+                </p>
+                {reviewError && (
+                  <p role="status" className="mt-1.5 text-xs text-amber-300">
+                    Could not take screenshots. Check your internet connection and try again.
+                  </p>
+                )}
+              </div>
             )}
             <PopoverClose onClose={() => setOpen(false)} />
           </div>

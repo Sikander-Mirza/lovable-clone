@@ -195,7 +195,7 @@ export default function Chat({
                   ))}
                 </div>
               )}
-              {m.content}
+              {m.label ?? m.content}
               {m.plan && (
                 <div className="space-y-1.5 border-t border-white/20 pt-2 text-xs text-white/80">
                   <div className="italic leading-snug">{m.plan.direction}</div>

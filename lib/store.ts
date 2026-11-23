@@ -15,6 +15,8 @@ export type Message = {
    * automatic "fix the preview error" pass. (Older saved projects used `true` = expand.)
    */
   auto?: "expand" | "fix" | boolean;
+  /** Short text shown in the chat instead of `content` (which is what the model receives), e.g. for a visual review. */
+  label?: string;
   /** Full project files right after this assistant reply: powers version history. */
   snapshot?: Record<string, string>;
 };

@@ -351,10 +351,10 @@ export default function ProjectPage() {
 
   if (!project) return null;
 
-  const send = (text: string, images: string[]) => {
+  const send = (text: string, images: string[], label?: string) => {
     const messages: Message[] = [
       ...project.messages,
-      { role: "user", content: text, ...(images.length ? { images } : {}) },
+      { role: "user", content: text, ...(images.length ? { images } : {}), ...(label ? { label } : {}) },
     ];
     const next = { ...project, messages };
     saveProject(next);
@@ -609,7 +609,7 @@ export default function ProjectPage() {
           onThemeChange={onThemeChange}
           onSiteChange={onSiteChange}
           onFilesChange={onFilesChange}
-          onAskAI={(prompt) => send(prompt, [])}
+          onAskAI={(prompt, images, label) => send(prompt, images ?? [], label)}
           projectName={project.name}
           building={busy || planning}
           focusMode={focus}
