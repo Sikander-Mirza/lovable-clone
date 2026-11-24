@@ -22,3 +22,37 @@ test("the review prompt describes the attached screenshots and asks for small ed
   assert.match(visualReviewPrompt(2), /small <edit> blocks/);
   assert.match(visualReviewPrompt(2), /If you find none, say so in one sentence and change nothing/);
 });
+
+import { probeChecks, type Probe } from "../lib/health";
+import { reviewFindings } from "../lib/review";
+
+const probe = (over: Partial<Probe> = {}): Probe => ({
+  h1Count: 1, headingSkips: 0, imgsTotal: 1, imgsNoAlt: 0, buttonsNoName: 0, inputsNoLabel: 0,
+  scrollWidth: 1280, clientWidth: 1280, cutOff: [], ...over,
+});
+const stray = { tag: "div", cls: "absolute -left-24 w-20", text: "", left: -96, right: -16 };
+
+test("a clean page gives no findings and a passing cut-off check", () => {
+  assert.equal(reviewFindings([{ label: "desktop", probe: probe() }, { label: "phone", probe: probe({ clientWidth: 390, scrollWidth: 390 }) }]), "");
+  assert.equal(probeChecks(probe()).find((c) => c.id === "layout-cutoff")!.status, "pass");
+});
+
+test("elements sticking out and sideways scrolling become findings per width", () => {
+  const text = reviewFindings([
+    { label: "desktop", probe: probe({ cutOff: [stray] }) },
+    { label: "phone", probe: probe({ clientWidth: 390, scrollWidth: 520 }) },
+    { label: "skipped", probe: null },
+  ]);
+  assert.match(text, /At desktop width this sticks out past the screen edge: <div class="absolute -left-24 w-20"> \(left edge -96px, right edge -16px\)/);
+  assert.match(text, /At phone width the page scrolls sideways \(content is 520px wide on a 390px screen\)/);
+  assert.ok(!text.includes("skipped"));
+});
+
+test("the review prompt carries the measured findings, and the health check fails with a fix", () => {
+  const f = reviewFindings([{ label: "desktop", probe: probe({ cutOff: [stray] }) }]);
+  assert.match(visualReviewPrompt(2, f), /measured, and these layout problems were found\. Fix them first:\n- At desktop width/);
+  assert.ok(!visualReviewPrompt(2).includes("measured"));
+  const c = probeChecks(probe({ cutOff: [stray] })).find((x) => x.id === "layout-cutoff")!;
+  assert.equal(c.status, "fail");
+  assert.match(c.fix!, /absolute -left-24 w-20/);
+});

@@ -21,7 +21,7 @@ import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
 import { styleKey } from "@/lib/previewKey";
-import { isReviewShot, visualReviewPrompt } from "@/lib/review";
+import { isReviewShot, reviewFindings, visualReviewPrompt, type ProbeAt } from "@/lib/review";
 import { setThumb } from "@/lib/thumb";
 import CodeView from "./CodeView";
 import ThemePanel from "./ThemePanel";
@@ -186,7 +186,7 @@ export default function Preview({
   };
 
   // Visual review: screenshot the whole page at desktop width, then at phone width, then restore the device.
-  const captureReview = async (): Promise<string[]> => {
+  const captureReview = async (): Promise<{ shots: string[]; findings: string }> => {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const before = device;
     const shoot = (): Promise<string | null> =>
@@ -205,20 +205,39 @@ export default function Preview({
         window.addEventListener("message", onMsg);
         post({ type: "capture", mode: "review", id });
       });
+    // Measure the live page at each width too (elements sticking out past the screen edge, sideways scrolling).
+    const measure = (): Promise<Probe | null> =>
+      new Promise((resolve) => {
+        const id = Math.random().toString(36).slice(2);
+        const done = (v: Probe | null) => {
+          clearTimeout(timer);
+          window.removeEventListener("message", onMsg);
+          resolve(v);
+        };
+        const onMsg = (e: MessageEvent) => {
+          if (e.source === frame.current?.contentWindow && e.data?.type === "health-result" && e.data.id === id) done(e.data.probe);
+        };
+        const timer = setTimeout(() => done(null), 5000);
+        window.addEventListener("message", onMsg);
+        post({ type: "health", id });
+      });
     const shots: string[] = [];
+    const probes: ProbeAt[] = [];
     try {
       setDevice("desktop");
       await sleep(900);
+      probes.push({ label: "desktop", probe: await measure() });
       const a = await shoot();
       if (a) shots.push(a);
       setDevice("mobile");
       await sleep(1100);
+      probes.push({ label: "phone", probe: await measure() });
       const b = await shoot();
       if (b) shots.push(b);
     } finally {
       setDevice(before);
     }
-    return shots;
+    return { shots, findings: reviewFindings(probes) };
   };
 
   // Automatic visual review: once the page is the final version, screenshot it (desktop, then phone)
@@ -238,8 +257,8 @@ export default function Preview({
       if (cancelled || buildingRef.current || reviewRefs.current.tab !== "preview") return;
       if ((frame.current?.getBoundingClientRect().width ?? 0) < 200) return; // hidden (for example on a phone's chat pane)
       setReviewNote("Taking screenshots for the design review...");
-      let shots = await reviewRefs.current.captureReview();
-      if (!shots.length && !cancelled) shots = await reviewRefs.current.captureReview(); // once more, in case the first try timed out
+      let { shots, findings } = await reviewRefs.current.captureReview();
+      if (!shots.length && !cancelled) ({ shots, findings } = await reviewRefs.current.captureReview()); // once more, in case the first try timed out
       if (cancelled || buildingRef.current) return setReviewNote(null);
       if (!shots.length) {
         setReviewNote("Design review skipped: the screenshots could not be taken.");
@@ -248,7 +267,7 @@ export default function Preview({
       }
       setReviewNote(null);
       reviewRefs.current.onAskAI?.(
-        visualReviewPrompt(shots.length),
+        visualReviewPrompt(shots.length, findings),
         shots,
         "Automatic visual review of the finished site (screenshots attached)"
       );

@@ -16,7 +16,7 @@ type Props = {
   currentFiles: Record<string, string>;
   streaming: string | null; // raw in-flight assistant text
   busy: boolean;
-  onSend: (text: string, images: string[]) => void;
+  onSend: (text: string, images: string[], note?: string) => void;
   onRestore: (messageIndex: number) => void;
   onRetry: () => void;
   /** Plan-before-build: the planner is thinking / a plan awaits review. */
@@ -165,7 +165,7 @@ export default function Chat({
     const t = input.trim();
     if ((!t && !att.images.length) || busy) return;
     setInput("");
-    onSend(t || "Recreate the attached design.", att.images);
+    onSend(t || "Recreate the attached design.", att.images, att.note || undefined);
     att.clear();
   };
 

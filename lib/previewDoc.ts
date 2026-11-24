@@ -763,7 +763,31 @@ const EDITOR = String.raw`
         (el.id && document.querySelector('label[for="' + el.id + '"]')) || el.closest("label");
       if (!labelled) noLabel++;
     });
+    // Elements that stick out past the left or right screen edge (a stray thumbnail, a card pushed off the page).
+    // Anything inside a clipping or scrolling ancestor (a carousel, overflow-hidden) is on purpose.
+    var vw = document.documentElement.clientWidth;
+    function outside(el) { var r = el.getBoundingClientRect(); return r.left < -4 || r.right > vw + 4; }
+    function clipped(el) {
+      for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        var ox = getComputedStyle(p).overflowX;
+        if (ox === "hidden" || ox === "auto" || ox === "scroll" || ox === "clip") return true;
+      }
+      return false;
+    }
+    var cutOff = [];
+    Array.prototype.forEach.call(document.body.querySelectorAll("*"), function (el) {
+      if (cutOff.length >= 6) return;
+      var cs = getComputedStyle(el);
+      if (cs.display === "none" || cs.visibility === "hidden" || cs.position === "fixed") return;
+      var r = el.getBoundingClientRect();
+      if (r.width < 24 || r.height < 24 || !outside(el) || clipped(el)) return;
+      if (el.parentElement && el.parentElement !== document.body && outside(el.parentElement)) return; // report the outermost one
+      var cls = (typeof el.className === "string" ? el.className : "").replace(/\s+/g, " ").trim().slice(0, 70);
+      var text = (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40);
+      cutOff.push({ tag: el.tagName.toLowerCase(), cls: cls, text: text, left: Math.round(r.left), right: Math.round(r.right) });
+    });
     return {
+      cutOff: cutOff,
       h1Count: document.querySelectorAll("h1").length, headingSkips: skips,
       imgsTotal: imgs.length, imgsNoAlt: noAlt, buttonsNoName: noName, inputsNoLabel: noLabel,
       scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth

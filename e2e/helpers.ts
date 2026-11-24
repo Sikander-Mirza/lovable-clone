@@ -52,7 +52,7 @@ Built a two-section coffee site.`;
  * site straight away. Call before the first page load. Returns every request body the app sent
  * to /api/generate, so tests can inspect them.
  */
-export async function mockAI(page: Page, opts: { review?: boolean } = {}) {
+export async function mockAI(page: Page, opts: { review?: boolean; reply?: string } = {}) {
   const requests: { messages: { content: string; images?: string[]; label?: string }[] }[] = [];
   await page.addInitScript((review) => {
     localStorage.setItem("lovable-clone:ask-questions", "off");
@@ -64,7 +64,7 @@ export async function mockAI(page: Page, opts: { review?: boolean } = {}) {
     try {
       requests.push(JSON.parse(route.request().postData() ?? "{}"));
     } catch {}
-    return route.fulfill({ status: 200, contentType: "text/plain; charset=utf-8", body: CANNED_REPLY });
+    return route.fulfill({ status: 200, contentType: "text/plain; charset=utf-8", body: opts.reply ?? CANNED_REPLY });
   });
   return requests;
 }

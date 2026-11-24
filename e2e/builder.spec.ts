@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { brandScale } from "../lib/theme";
-import { buildSite, mockAI } from "./helpers";
+import { CANNED_REPLY, buildSite, mockAI } from "./helpers";
 
 test.describe("landing page", () => {
   test("has a skip link, example prompts and a caption that follows the options", async ({ page }) => {
@@ -21,6 +21,104 @@ test.describe("landing page", () => {
       els.filter((e) => !(e.textContent?.trim() || e.getAttribute("aria-label") || e.getAttribute("title"))).length
     );
     expect(unnamed).toBe(0);
+  });
+});
+
+/** The build is over and the page has reloaded once with the theme (the hero button shows the brand color). */
+async function settled(page: import("@playwright/test").Page) {
+  const hex = brandScale("#92400e")["600"];
+  const rgb = `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")})`;
+  await expect(page.frameLocator('iframe[title="Preview"]').getByRole("button", { name: "Shop beans" })).toHaveCSS("background-color", rgb);
+  await page.waitForTimeout(1500);
+}
+
+test.describe("layout measuring", () => {
+  // The canned Hero plus one box pushed 96px past the left edge of the screen.
+  const STRAY_REPLY = CANNED_REPLY.replace(
+    "<Hero />",
+    '<Hero /><div className="absolute -left-24 top-40 h-24 w-24 bg-red-500">STRAY</div>'
+  ).replace('className="min-h-screen bg-brand-50"', 'className="relative min-h-screen bg-brand-50"');
+
+  test("the health report flags an element that sticks out past the screen edge", async ({ page }) => {
+    await mockAI(page, { reply: STRAY_REPLY });
+    await buildSite(page);
+    await expect(page.frameLocator('iframe[title="Preview"]').getByText("STRAY")).toBeAttached();
+    await settled(page);
+    await page.getByRole("button", { name: "Site health report" }).click();
+    const row = page.getByText("Nothing sticks out past the screen edge");
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/element\(s\) are cut off, for example <div class="absolute -left-24/)).toBeVisible();
+  });
+
+  test("the visual review sends the measured problems along with the screenshots", async ({ page }) => {
+    const requests = await mockAI(page, { reply: STRAY_REPLY });
+    await buildSite(page);
+    await expect(page.frameLocator('iframe[title="Preview"]').getByText("STRAY")).toBeAttached();
+    await settled(page);
+    await page.getByRole("button", { name: "Site health report" }).click();
+    await page.getByRole("button", { name: "Visual review with AI" }).click();
+    await expect.poll(() => requests.length, { timeout: 90_000 }).toBeGreaterThanOrEqual(2);
+    const last = requests[requests.length - 1].messages.at(-1)!;
+    expect(last.images).toHaveLength(2);
+    expect(last.content).toMatch(/these layout problems were found/);
+    expect(last.content).toMatch(/sticks out past the screen edge: <div class="absolute -left-24/);
+  });
+});
+
+test.describe("long screenshots", () => {
+  test("a tall screenshot is cut into slices and the model is told to read them as one page", async ({ page }) => {
+    const requests = await mockAI(page);
+    await page.goto("/");
+    // A 600 x 3600 "full-page screenshot", made in the browser and handed to the file input.
+    await page.evaluate(async () => {
+      const c = document.createElement("canvas");
+      c.width = 600;
+      c.height = 3600;
+      const ctx = c.getContext("2d")!;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, 600, 3600);
+      ctx.fillStyle = "#000";
+      ctx.font = "40px sans-serif";
+      for (let i = 0; i < 9; i++) ctx.fillText("Section " + (i + 1), 20, 100 + i * 400);
+      const blob: Blob = await new Promise((res) => c.toBlob((b) => res(b!), "image/png"));
+      const dt = new DataTransfer();
+      dt.items.add(new File([blob], "long.png", { type: "image/png" }));
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+      input.files = dt.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await expect(page.locator('img[alt="attachment"]')).toHaveCount(4); // the most images a message can carry
+    await page.getByPlaceholder(/landing page for a coffee shop/i).fill("Recreate this page");
+    await page.keyboard.press("Enter");
+    await page.waitForURL(/\/project\//);
+    await expect.poll(() => requests.length, { timeout: 30_000 }).toBeGreaterThanOrEqual(1);
+    const first = requests[0].messages[0];
+    expect(first.images).toHaveLength(4);
+    expect(first.content).toMatch(/consecutive vertical slices of one long screenshot/);
+  });
+
+  test("a normal screenshot stays one image and adds no note", async ({ page }) => {
+    const requests = await mockAI(page);
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const c = document.createElement("canvas");
+      c.width = 1200;
+      c.height = 800;
+      c.getContext("2d")!.fillRect(0, 0, 1200, 800);
+      const blob: Blob = await new Promise((res) => c.toBlob((b) => res(b!), "image/png"));
+      const dt = new DataTransfer();
+      dt.items.add(new File([blob], "screen.png", { type: "image/png" }));
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+      input.files = dt.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await expect(page.locator('img[alt="attachment"]')).toHaveCount(1);
+    await page.getByPlaceholder(/landing page for a coffee shop/i).fill("Recreate this page");
+    await page.keyboard.press("Enter");
+    await page.waitForURL(/\/project\//);
+    await expect.poll(() => requests.length, { timeout: 30_000 }).toBeGreaterThanOrEqual(1);
+    expect(requests[0].messages[0].images).toHaveLength(1);
+    expect(requests[0].messages[0].content).not.toMatch(/consecutive vertical slices/);
   });
 });
 

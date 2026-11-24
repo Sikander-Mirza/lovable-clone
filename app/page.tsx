@@ -166,7 +166,7 @@ export default function Home() {
   };
 
   const build = async (text: string, details = "") => {
-    const p = await createProject(text, att.images, details);
+    const p = await createProject(text, att.images, [details, att.note].filter(Boolean).join("\n\n"));
     router.push(`/project/${p.id}`);
   };
 

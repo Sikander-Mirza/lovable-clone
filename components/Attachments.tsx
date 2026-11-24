@@ -2,25 +2,38 @@
 
 import { useCallback, useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
-import { MAX_IMAGES, fileToDataUrl } from "@/lib/image";
+import { MAX_IMAGES, SLICE_NOTE, fileToDataUrls } from "@/lib/image";
 
 export function useAttachments() {
   const [images, setImages] = useState<string[]>([]);
+  const [sliced, setSliced] = useState(false);
+  const count = useRef(0);
+  count.current = images.length;
 
   const add = useCallback(async (files: File[]) => {
     const imgs = files.filter((f) => f.type.startsWith("image/"));
     if (!imgs.length) return;
     const urls: string[] = [];
+    let anySliced = false;
     for (const f of imgs) {
+      const room = MAX_IMAGES - count.current - urls.length;
+      if (room <= 0) break;
       try {
-        urls.push(await fileToDataUrl(f));
+        // A very tall screenshot becomes several readable slices instead of one tiny strip.
+        const r = await fileToDataUrls(f, room);
+        urls.push(...r.urls);
+        anySliced = anySliced || r.sliced;
       } catch {}
     }
+    if (anySliced) setSliced(true);
     setImages((prev) => [...prev, ...urls].slice(0, MAX_IMAGES));
   }, []);
 
   const remove = (i: number) => setImages((prev) => prev.filter((_, j) => j !== i));
-  const clear = () => setImages([]);
+  const clear = () => {
+    setImages([]);
+    setSliced(false);
+  };
 
   /** Spread onto a textarea/container so pasted and dropped images are picked up. */
   const handlers = {
@@ -40,7 +53,10 @@ export function useAttachments() {
     onDragOver: (e: React.DragEvent) => e.preventDefault(),
   };
 
-  return { images, add, remove, clear, handlers };
+  /** Hidden hint for the model; empty unless a long screenshot was cut into slices. */
+  const note = sliced && images.length > 1 ? SLICE_NOTE : "";
+
+  return { images, add, remove, clear, handlers, note };
 }
 
 export function AttachButton({ onFiles }: { onFiles: (files: File[]) => void }) {

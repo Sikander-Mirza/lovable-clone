@@ -374,10 +374,16 @@ export default function ProjectPage() {
 
   if (!project) return null;
 
-  const send = (text: string, images: string[], label?: string) => {
+  const send = (text: string, images: string[], label?: string, details?: string) => {
     const messages: Message[] = [
       ...project.messages,
-      { role: "user", content: text, ...(images.length ? { images } : {}), ...(label ? { label } : {}) },
+      {
+        role: "user",
+        content: text,
+        ...(images.length ? { images } : {}),
+        ...(label ? { label } : {}),
+        ...(details ? { details } : {}),
+      },
     ];
     const next = { ...project, messages };
     saveProject(next);
@@ -601,7 +607,7 @@ export default function ProjectPage() {
             currentFiles={project.files}
             streaming={streaming}
             busy={busy || planning || !!pendingPlan}
-            onSend={send}
+            onSend={(text, images, note) => send(text, images, undefined, note)}
             onRestore={restore}
             onRetry={retry}
             planning={planning}

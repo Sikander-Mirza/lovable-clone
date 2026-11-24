@@ -23,7 +23,7 @@ export default function HealthPanel({
   /** Measures the running preview at phone width; resolves null if it could not. */
   runProbe: () => Promise<Probe | null>;
   /** Screenshots of the preview (desktop, then phone) for the visual review; resolves [] on failure. */
-  captureReview?: () => Promise<string[]>;
+  captureReview?: () => Promise<{ shots: string[]; findings: string }>;
   onAskAI: (prompt: string, images?: string[], label?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -40,11 +40,11 @@ export default function HealthPanel({
     if (!captureReview) return;
     setReviewing(true);
     setReviewError(false);
-    const shots = await captureReview();
+    const { shots, findings } = await captureReview();
     setReviewing(false);
     if (!shots.length) return setReviewError(true);
     setOpen(false);
-    onAskAI(visualReviewPrompt(shots.length), shots, "Visual design review of my site (screenshots attached)");
+    onAskAI(visualReviewPrompt(shots.length, findings), shots, "Visual design review of my site (screenshots attached)");
   };
 
   const run = async () => {

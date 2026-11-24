@@ -176,3 +176,9 @@ Turned on by the **Check its looks** switch on the home page (on by default). Wh
 
 ## Theme on fresh builds
 While the AI writes, the preview loads an empty page first so sections can appear live, and files are swapped into it without reloading. Its Tailwind config (the `brand-*` scale), Google Fonts link and `<html lang>` come from `/theme.json` and `/site.json`, which do not exist yet at that point, so the page starts with the default indigo theme. At the end of the build `lib/previewKey.ts` compares the style key of the loaded page with the finished site's; if they differ, the preview reloads once (a plain hot update would keep the default colors and fonts). `e2e/builder.spec.ts` checks that a fresh build renders the theme's brand color, not `rgb(79, 70, 229)`.
+
+## Long screenshots are cut into slices
+When you attach a very tall screenshot (a full-page capture, taller than twice its width), `lib/image.ts` cuts it into 2 to 4 overlapping slices (about 4:5 each, at most 1280px on the long side) instead of shrinking the whole page into one unreadable strip, and a hidden note tells the model to read the slices top to bottom as one page. Normal screenshots stay one image. The 4-image limit still applies.
+
+## Layout measuring
+The preview measures itself (`probe()` in `lib/previewDoc.ts`): elements that stick out past the left or right screen edge (anything inside a carousel or `overflow-hidden` is ignored as intentional) and sideways scrolling. The Health report has a "Nothing sticks out past the screen edge" check, and the visual review measures the page at desktop and phone width and puts the findings into the prompt next to the screenshots ("these layout problems were found, fix them first"), so the AI gets numbers as well as pictures. The system prompt also has a LAYOUT DISCIPLINE rule (centered containers, equal-size card grids, full-cover hero photos, fixed image aspect ratios).

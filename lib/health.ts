@@ -18,6 +18,8 @@ export type Probe = {
   inputsNoLabel: number;
   scrollWidth: number;
   clientWidth: number;
+  /** Elements sticking out past the left or right screen edge (see probe() in lib/previewDoc.ts). */
+  cutOff?: { tag: string; cls: string; text: string; left: number; right: number }[];
 };
 
 // ----------------------------------------------------------- contrast
@@ -121,6 +123,13 @@ export function staticChecks(files: Record<string, string>): Check[] {
 
 // ----------------------------------------------------------- live checks
 
+/** One element that sticks out past the screen edge, as a short readable line. */
+export function describeCutOff(c: NonNullable<Probe["cutOff"]>[number]): string {
+  const cls = c.cls ? ` class="${c.cls}"` : "";
+  const text = c.text ? ` "${c.text}"` : "";
+  return `<${c.tag}${cls}>${text} (left edge ${c.left}px, right edge ${c.right}px)`;
+}
+
 export function probeChecks(p: Probe): Check[] {
   const checks: Check[] = [
     {
@@ -158,6 +167,14 @@ export function probeChecks(p: Probe): Check[] {
       status: p.scrollWidth <= p.clientWidth + 1 ? "pass" : "fail",
       detail: p.scrollWidth <= p.clientWidth + 1 ? undefined : `Content is ${p.scrollWidth}px wide on a ${p.clientWidth}px screen`,
       fix: "Find what is wider than the phone screen (fixed widths, long unbroken text, wide images, negative margins) and make it fit; add overflow-x-hidden only as a last resort.",
+    },
+    {
+      id: "layout-cutoff", group: "Mobile", label: "Nothing sticks out past the screen edge",
+      status: p.cutOff?.length ? "fail" : "pass",
+      detail: p.cutOff?.length ? `${p.cutOff.length} element(s) are cut off, for example ${describeCutOff(p.cutOff[0])}` : undefined,
+      fix: p.cutOff?.length
+        ? `These elements stick out past the left or right edge of the screen. Put them back inside their container (padding, negative margins, fixed widths, absolute positioning without a relative parent): ${p.cutOff.map(describeCutOff).join("; ")}`
+        : undefined,
     },
   ];
   return checks;
