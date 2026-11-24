@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { brandScale } from "../lib/theme";
 import { buildSite, mockAI } from "./helpers";
 
 test.describe("landing page", () => {
@@ -35,6 +36,19 @@ test.describe("building a site (AI mocked)", () => {
     await expect(preview.getByText("Harbor Coffee")).toBeVisible();
     // The long list of written files folds into one line.
     await expect(page.getByText("5 files written")).toBeVisible();
+  });
+
+  test("a fresh build uses the theme's brand color and fonts, not the default indigo", async ({ page }) => {
+    // The canned theme is brand #92400e; Hero's button is bg-brand-600. The page that loads while the AI
+    // writes starts with the default theme, so the preview has to reload once at the end of the build.
+    const hex = brandScale("#92400e")["600"];
+    const rgb = `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")})`;
+    const button = page.frameLocator('iframe[title="Preview"]').getByRole("button", { name: "Shop beans" });
+    await expect(button).toHaveCSS("background-color", rgb);
+    await expect(page.frameLocator('iframe[title="Preview"]').getByRole("heading", { name: /Small-batch/ })).toHaveCSS(
+      "font-family",
+      /Playfair Display/
+    );
   });
 
   test("design tool popovers open, close with Esc and give focus back", async ({ page }) => {

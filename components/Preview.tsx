@@ -20,6 +20,7 @@ import {
 import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
+import { styleKey } from "@/lib/previewKey";
 import { isReviewShot, visualReviewPrompt } from "@/lib/review";
 import { setThumb } from "@/lib/thumb";
 import CodeView from "./CodeView";
@@ -200,7 +201,7 @@ export default function Preview({
           if (e.source !== frame.current?.contentWindow || e.data?.type !== "review-shot" || e.data.id !== id) return;
           done(isReviewShot(e.data.data) ? e.data.data : null);
         };
-        const timer = setTimeout(() => done(null), 25000);
+        const timer = setTimeout(() => done(null), 60000);
         window.addEventListener("message", onMsg);
         post({ type: "capture", mode: "review", id });
       });
@@ -224,6 +225,7 @@ export default function Preview({
   // and let the AI fix layout problems. Skipped when the preview is not on screen.
   const reviewRefs = useRef({ captureReview, onAskAI, tab });
   reviewRefs.current = { captureReview, onAskAI, tab };
+  const [reviewNote, setReviewNote] = useState<string | null>(null);
   const lastReviewTick = useRef(reviewTick ?? 0);
   useEffect(() => {
     if (!reviewTick || reviewTick === lastReviewTick.current) return;
@@ -235,8 +237,16 @@ export default function Preview({
       await sleep(3500); // let the last hot update settle
       if (cancelled || buildingRef.current || reviewRefs.current.tab !== "preview") return;
       if ((frame.current?.getBoundingClientRect().width ?? 0) < 200) return; // hidden (for example on a phone's chat pane)
-      const shots = await reviewRefs.current.captureReview();
-      if (cancelled || !shots.length || buildingRef.current) return;
+      setReviewNote("Taking screenshots for the design review...");
+      let shots = await reviewRefs.current.captureReview();
+      if (!shots.length && !cancelled) shots = await reviewRefs.current.captureReview(); // once more, in case the first try timed out
+      if (cancelled || buildingRef.current) return setReviewNote(null);
+      if (!shots.length) {
+        setReviewNote("Design review skipped: the screenshots could not be taken.");
+        setTimeout(() => setReviewNote(null), 8000);
+        return;
+      }
+      setReviewNote(null);
       reviewRefs.current.onAskAI?.(
         visualReviewPrompt(shots.length),
         shots,
@@ -257,6 +267,7 @@ export default function Preview({
         built.current = {};
         readyRef.current = false;
         shellAt.current = Date.now();
+        docKey.current = styleKey({});
         setDoc(buildPreviewDoc({}, readAppData(projectId), true));
       }
     }
@@ -275,6 +286,7 @@ export default function Preview({
   const readyRef = useRef(false);
   const shellAt = useRef(0);
   const endHot = useRef(false);
+  const docKey = useRef(""); // styleKey of the page that is loaded (see lib/previewKey.ts)
   const buildingRef = useRef(building);
   buildingRef.current = building;
   const latestFiles = useRef(files);
@@ -295,7 +307,10 @@ export default function Preview({
       }
       built.current = f;
       // While the AI writes (and for the final update) swap the files inside the running page instead of reloading it.
-      if ((buildingRef.current || endHot.current) && readyRef.current && frame.current?.contentWindow) {
+      // The final update normally swaps files in place, unless the theme or language changed since the page was
+      // started: the Tailwind config, fonts and <html lang> are baked into the page, so reload it once.
+      const styleChanged = styleKey(f) !== docKey.current;
+      if ((buildingRef.current || (endHot.current && !styleChanged)) && readyRef.current && frame.current?.contentWindow) {
         endHot.current = false;
         post({ type: "hot", files: f, partial: !!buildingRef.current });
         return;
@@ -305,6 +320,7 @@ export default function Preview({
       shellAt.current = 0;
       setError(null);
       setSel(null);
+      docKey.current = styleKey(f);
       setDoc(buildPreviewDoc(f, readAppData(projectId), !!buildingRef.current));
     };
     rebuildTimer.current = setTimeout(fire, 400);
@@ -559,6 +575,11 @@ export default function Preview({
                 </button>
               </div>
             )}
+          </div>
+        )}
+        {reviewNote && tab === "preview" && (
+          <div role="status" className="rise pointer-events-none absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-[#0d0d14]/90 px-3 py-1 text-xs text-violet-100 shadow-lg backdrop-blur">
+            <Sparkles size={12} className="animate-pulse" /> {reviewNote}
           </div>
         )}
         {/* While the AI works on an existing site: a moving bar and a small status pill */}

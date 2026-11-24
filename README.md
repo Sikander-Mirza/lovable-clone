@@ -173,3 +173,6 @@ After the first build, `lib/brandCheck.ts` looks for Tailwind's default accent c
 
 ## Automatic visual review
 Turned on by the **Check its looks** switch on the home page (on by default). When the first version of a website is finished (after any fix and expand passes), the preview screenshots itself at desktop and phone width and sends both to the AI with the visual-review prompt (see "Visual review with AI"). It runs once per project, only for sites (`/site.json` exists), and is skipped when the preview is not on screen (for example on a phone's chat pane). The chat shows "Automatic visual review of the finished site" with the screenshots.
+
+## Theme on fresh builds
+While the AI writes, the preview loads an empty page first so sections can appear live, and files are swapped into it without reloading. Its Tailwind config (the `brand-*` scale), Google Fonts link and `<html lang>` come from `/theme.json` and `/site.json`, which do not exist yet at that point, so the page starts with the default indigo theme. At the end of the build `lib/previewKey.ts` compares the style key of the loaded page with the finished site's; if they differ, the preview reloads once (a plain hot update would keep the default colors and fonts). `e2e/builder.spec.ts` checks that a fresh build renders the theme's brand color, not `rgb(79, 70, 229)`.
