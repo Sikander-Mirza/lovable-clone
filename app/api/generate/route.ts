@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   };
 
   // Targets are tried in order: the primary provider's models, then (optionally) a backup
-  // provider such as OpenRouter. The backup is skipped for image requests (vision support varies).
+  // provider such as OpenAI or OpenRouter. The backup is skipped for image requests unless LLM_BACKUP_VISION=true.
   const list = (v: string | undefined, dflt: string) =>
     (v ?? dflt).split(",").map((m) => m.trim()).filter(Boolean);
   const primary = new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL, maxRetries: 0 });
@@ -60,7 +60,8 @@ export async function POST(req: Request) {
     .map((model) => ({ client: primary, model, provider: "primary" }));
 
   const hasImages = messages.some((m) => m.images?.length);
-  if (process.env.LLM_BACKUP_API_KEY && !hasImages) {
+  // Set LLM_BACKUP_VISION=true when the backup models accept images (OpenAI gpt-4.x do).
+  if (process.env.LLM_BACKUP_API_KEY && (!hasImages || process.env.LLM_BACKUP_VISION === "true")) {
     const backup = new OpenAI({
       apiKey: process.env.LLM_BACKUP_API_KEY,
       baseURL: process.env.LLM_BACKUP_BASE_URL || "https://openrouter.ai/api/v1",

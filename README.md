@@ -161,3 +161,6 @@ After the first build from an approved plan, `lib/planCheck.ts` compares the res
 
 ## End-to-end tests
 `npm run e2e` drives the real app in Chromium (Playwright, `e2e/`): the landing page, building a site from a prompt, the preview, popovers closing with Esc, the Code tab, keyboard shortcuts and the phone layout. The AI is mocked (`e2e/helpers.ts` answers `/api/generate` with a canned two-section site), so the tests are free and deterministic; the preview still loads Tailwind, Babel and React from CDNs, so they need internet. Locally it reuses a running `npm run dev` or starts one; in CI (`.github/workflows/ci.yml`) it runs against the production build after the unit tests, and uploads traces if something fails. First time: `npx playwright install chromium`.
+
+## Choosing the AI provider
+Any OpenAI-compatible API works as the main provider (`LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_FALLBACK_MODELS`) and one more as the backup (`LLM_BACKUP_*`, tried when every main model fails). A good setup is paid OpenAI as the main provider (`gpt-4.1`, falling back to `gpt-4.1-mini`) with free Gemini as the backup; set `LLM_BACKUP_VISION=true` so screenshots and image attachments also work on the backup. When the backup answers, the chat shows the amber notice. Keys live only in `.env.local` (git-ignored).
