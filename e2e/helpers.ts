@@ -5,6 +5,9 @@ export const CANNED_REPLY = `Direction: warm, editorial coffee shop with a serif
 <file path="/theme.json">
 {"brand":"#92400e","font":"Inter","headingFont":"Playfair Display"}
 </file>
+<file path="/site.json">
+{"seo":{"title":"Harbor Coffee","description":"Small-batch coffee, roasted daily.","lang":"en"},"whatsapp":{"enabled":false,"number":"","message":""}}
+</file>
 <file path="/App.js">
 import React from "react";
 import Navbar from "./components/Navbar";
@@ -45,17 +48,25 @@ Built a two-section coffee site.`;
 
 /**
  * Replaces the model with a canned reply and turns off the optional steps (questions, plan,
- * expand) so one prompt builds one site straight away. Call before the first page load.
+ * expand and the automatic screenshot review, unless `review` is true) so one prompt builds one
+ * site straight away. Call before the first page load. Returns every request body the app sent
+ * to /api/generate, so tests can inspect them.
  */
-export async function mockAI(page: Page) {
-  await page.addInitScript(() => {
+export async function mockAI(page: Page, opts: { review?: boolean } = {}) {
+  const requests: { messages: { content: string; images?: string[]; label?: string }[] }[] = [];
+  await page.addInitScript((review) => {
     localStorage.setItem("lovable-clone:ask-questions", "off");
     localStorage.setItem("lovable-clone:plan-first", "off");
     localStorage.setItem("lovable-clone:auto-expand", "off");
+    localStorage.setItem("lovable-clone:auto-review", review ? "on" : "off");
+  }, !!opts.review);
+  await page.route("**/api/generate", (route) => {
+    try {
+      requests.push(JSON.parse(route.request().postData() ?? "{}"));
+    } catch {}
+    return route.fulfill({ status: 200, contentType: "text/plain; charset=utf-8", body: CANNED_REPLY });
   });
-  await page.route("**/api/generate", (route) =>
-    route.fulfill({ status: 200, contentType: "text/plain; charset=utf-8", body: CANNED_REPLY })
-  );
+  return requests;
 }
 
 /** Types a prompt on the home page and waits until the built site shows in the preview. */

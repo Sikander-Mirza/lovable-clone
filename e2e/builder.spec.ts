@@ -34,7 +34,7 @@ test.describe("building a site (AI mocked)", () => {
     await expect(preview.getByRole("heading", { name: "Small-batch coffee, roasted daily." })).toBeVisible();
     await expect(preview.getByText("Harbor Coffee")).toBeVisible();
     // The long list of written files folds into one line.
-    await expect(page.getByText("4 files written")).toBeVisible();
+    await expect(page.getByText("5 files written")).toBeVisible();
   });
 
   test("design tool popovers open, close with Esc and give focus back", async ({ page }) => {
@@ -60,6 +60,22 @@ test.describe("building a site (AI mocked)", () => {
     await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeHidden();
+  });
+});
+
+test.describe("automatic visual review", () => {
+  test("after the first build the app screenshots the site and sends it to the AI once", async ({ page }) => {
+    const requests = await mockAI(page, { review: true });
+    await buildSite(page);
+    // The chat shows a short label with the screenshots, not the long prompt.
+    await expect(page.getByText("Automatic visual review of the finished site (screenshots attached)")).toBeVisible({ timeout: 80_000 });
+    await expect.poll(() => requests.length, { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
+    const last = requests[requests.length - 1].messages.at(-1)!;
+    expect(last.images).toHaveLength(2); // desktop and phone
+    expect(last.content).toMatch(/visual design review/i);
+    // One review only: a short wait does not produce another one.
+    await page.waitForTimeout(8000);
+    expect(requests.filter((r) => r.messages.at(-1)?.images?.length).length).toBe(1);
   });
 });
 

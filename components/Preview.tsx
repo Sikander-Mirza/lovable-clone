@@ -20,7 +20,7 @@ import {
 import { buildPreviewDoc } from "@/lib/previewDoc";
 import { sameFiles } from "@/lib/versions";
 import EditBar, { type Selection } from "./EditBar";
-import { isReviewShot } from "@/lib/review";
+import { isReviewShot, visualReviewPrompt } from "@/lib/review";
 import { setThumb } from "@/lib/thumb";
 import CodeView from "./CodeView";
 import ThemePanel from "./ThemePanel";
@@ -67,6 +67,7 @@ export default function Preview({
   focusMode,
   onToggleFocus,
   building,
+  reviewTick,
   editDisabled,
   canUndo,
   canRedo,
@@ -95,6 +96,8 @@ export default function Preview({
   onToggleFocus?: () => void;
   /** True while the AI is generating: shows the building animation. */
   building?: boolean;
+  /** Increase to ask for one automatic visual review of the finished site (see lib/review.ts). */
+  reviewTick?: number;
   editDisabled?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
@@ -217,6 +220,34 @@ export default function Preview({
     return shots;
   };
 
+  // Automatic visual review: once the page is the final version, screenshot it (desktop, then phone)
+  // and let the AI fix layout problems. Skipped when the preview is not on screen.
+  const reviewRefs = useRef({ captureReview, onAskAI, tab });
+  reviewRefs.current = { captureReview, onAskAI, tab };
+  const lastReviewTick = useRef(reviewTick ?? 0);
+  useEffect(() => {
+    if (!reviewTick || reviewTick === lastReviewTick.current) return;
+    lastReviewTick.current = reviewTick;
+    let cancelled = false;
+    (async () => {
+      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      for (let i = 0; i < 40 && !cancelled && !(readyRef.current && !buildingRef.current); i++) await sleep(1000);
+      await sleep(3500); // let the last hot update settle
+      if (cancelled || buildingRef.current || reviewRefs.current.tab !== "preview") return;
+      if ((frame.current?.getBoundingClientRect().width ?? 0) < 200) return; // hidden (for example on a phone's chat pane)
+      const shots = await reviewRefs.current.captureReview();
+      if (cancelled || !shots.length || buildingRef.current) return;
+      reviewRefs.current.onAskAI?.(
+        visualReviewPrompt(shots.length),
+        shots,
+        "Automatic visual review of the finished site (screenshots attached)"
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewTick]);
   // Remember whether a run started on an empty project; clear it when the run ends.
   useEffect(() => {
     if (building && !wasBuilding.current) {

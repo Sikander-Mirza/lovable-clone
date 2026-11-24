@@ -23,3 +23,14 @@ test("the landing caption describes what Build will do for each option mix", () 
   assert.equal(flowText(false, false, false), "When you press Build, the AI will build the site.");
   assert.equal(flowText(false, true, false), "When you press Build, the AI will show you a plan to edit and build the site.");
 });
+
+test("the caption mentions the screenshot check only when it is on", () => {
+  assert.equal(
+    flowText(false, false, false, true),
+    "When you press Build, the AI will build the site and check the result from screenshots and fix layout problems."
+  );
+  assert.equal(
+    flowText(true, true, true, true),
+    "When you press Build, the AI will ask a few quick questions, show you a plan to edit, build the site, expand it into a fuller version and check the result from screenshots and fix layout problems."
+  );
+});

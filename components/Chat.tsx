@@ -175,7 +175,11 @@ export default function Chat({
         {messages.map((m, i) =>
           m.auto ? (
             <div key={i} className="flex items-center gap-1.5 text-xs text-violet-300/80">
-              {m.auto === "fix" ? (
+              {m.label ? (
+                <>
+                  <Sparkles size={12} /> {m.label}
+                </>
+              ) : m.auto === "fix" ? (
                 <>
                   <Wrench size={12} /> Found an error in the preview: fixing it automatically...
                 </>

@@ -19,6 +19,7 @@ import { withStubs, withTempApp } from "@/lib/partial";
 import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt, staticFixPrompt } from "@/lib/prompt";
 import type { Issue } from "@/lib/validate";
 import { formatPlan, type Plan } from "@/lib/plan";
+import { brandCheck, brandFixPrompt } from "@/lib/brandCheck";
 import { checkPlan, planFixPrompt } from "@/lib/planCheck";
 import { SITE_PATH, serializeSite, type SiteSettings } from "@/lib/site";
 import { sameFiles, versionNumber } from "@/lib/versions";
@@ -40,6 +41,7 @@ export default function ProjectPage() {
   // Width of the chat panel (user-resizable, remembered in this browser).
   const [chatWidth, setChatWidth] = useState(400);
   const [resizing, setResizing] = useState(false);
+  const [reviewTick, setReviewTick] = useState(0);
   const [modelNotice, setModelNotice] = useState<string | null>(null);
   const [pane, setPane] = useState<"chat" | "preview">("chat");
   useEffect(() => {
@@ -189,19 +191,33 @@ export default function ProjectPage() {
       const plan = p.messages[0]?.plan;
       const firstBuild = p.messages.filter((m) => m.role === "user" && !m.auto).length === 1;
       const planProblems = plan && firstBuild ? checkPlan(merged, plan) : null;
-      if (errors.length || planProblems) {
+      // Hardcoded indigo/blue accents instead of the theme's brand color (first build only).
+      const brandProblems = firstBuild ? brandCheck(merged) : null;
+      if (errors.length || planProblems || brandProblems) {
         fixBudget.current -= 1;
         autoFixing.current = true;
         const list = errors.map((i) => `- ${i.file}: ${i.message}`).join("\n");
         const content = [
           errors.length ? staticFixPrompt(list.slice(0, 2500)) : "",
           planProblems ? planFixPrompt(planProblems) : "",
+          brandProblems ? brandFixPrompt(brandProblems) : "",
         ]
           .filter(Boolean)
           .join("\n\n");
         const follow: Project = {
           ...next,
-          messages: [...next.messages, { role: "user", content, auto: "fix" }],
+          messages: [
+            ...next.messages,
+            {
+              role: "user",
+              content,
+              auto: "fix",
+              // The default chat line says "found an error in the preview"; say what is really happening.
+              ...(!errors.length
+                ? { label: planProblems ? "Matching the site to the approved plan..." : "Matching the site to its brand color..." }
+                : {}),
+            },
+          ],
         };
         await saveProject(follow);
         setProject(follow);
@@ -250,6 +266,15 @@ export default function ProjectPage() {
       setProject(follow);
       setStreaming("");
       return runRef.current?.(follow);
+    }
+
+    // The first version is finished (after any fix and expand passes): one automatic look at the result.
+    let reviewOn = true;
+    try {
+      reviewOn = localStorage.getItem("lovable-clone:auto-review") !== "off";
+    } catch {}
+    if (reviewOn && !failed && "/site.json" in merged && p.messages.filter((m) => m.role === "user" && !m.auto).length === 1) {
+      setReviewTick((t) => t + 1);
     }
 
     setStreaming(null);
@@ -617,6 +642,7 @@ export default function ProjectPage() {
           onAskAI={(prompt, images, label) => send(prompt, images ?? [], label)}
           projectName={project.name}
           building={busy || planning}
+          reviewTick={reviewTick}
           focusMode={focus}
           onToggleFocus={() => setFocus((v) => !v)}
           editDisabled={busy}

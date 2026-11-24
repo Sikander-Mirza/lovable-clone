@@ -1,4 +1,6 @@
 import { NOTICE_PREFIX } from "@/lib/notice";
+import { complete } from "@/lib/llm";
+import { matchedPhotos, wantsPhotos } from "@/lib/unsplash";
 import OpenAI from "openai";
 import { SYSTEM_PROMPT, filesContext } from "@/lib/prompt";
 import { guardRequest } from "@/lib/guard";
@@ -73,10 +75,22 @@ export async function POST(req: Request) {
     }
   }
 
+  // Topic-matched photos from Unsplash (best effort: never delay or break a build because of them).
+  let matched = "";
+  const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
+  const lastMsg = messages[messages.length - 1];
+  if (unsplashKey && lastMsg?.role === "user" && wantsPhotos(files, lastMsg.content)) {
+    matched = await Promise.race([
+      matchedPhotos(lastMsg.content, unsplashKey, (system, user) => complete(system, user, 8000)),
+      new Promise<string>((resolve) => setTimeout(() => resolve(""), 9000)),
+    ]).catch(() => "");
+    console.log(`[generate] matched photos: ${matched ? "found" : "none"}`);
+  }
+
   // Attach the current project files to the latest user turn.
   const msgs: OpenAI.Chat.ChatCompletionMessageParam[] = messages.map((m, i) => {
     if (i === messages.length - 1 && m.role === "user") {
-      const text = `${filesContext(files, m.content)}\n\nRequest: ${m.content}`;
+      const text = `${filesContext(files, m.content)}\n\nRequest: ${m.content}${matched ? `\n\n${matched}` : ""}`;
       if (!m.images?.length) return { role: "user", content: text };
       return {
         role: "user",

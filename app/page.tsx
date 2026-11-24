@@ -117,6 +117,20 @@ export default function Home() {
   }, []);
 
   // After the first version, let the AI run one extra pass to expand thin results.
+  // After the build, the AI looks at screenshots of its own result and fixes layout problems.
+  const [autoReview, setAutoReview] = useState(true);
+  useEffect(() => {
+    try {
+      setAutoReview(localStorage.getItem("lovable-clone:auto-review") !== "off");
+    } catch {}
+  }, []);
+  const toggleReview = (on: boolean) => {
+    setAutoReview(on);
+    try {
+      localStorage.setItem("lovable-clone:auto-review", on ? "on" : "off");
+    } catch {}
+  };
+
   const [autoExpand, setAutoExpand] = useState(true);
   useEffect(() => {
     try {
@@ -233,6 +247,12 @@ export default function Home() {
                   hint="The AI proposes a visual direction, palette and sections for you to edit before it builds"
                 />
                 <Toggle
+                  checked={autoReview}
+                  onChange={toggleReview}
+                  label="Check its looks"
+                  hint="After building, the AI looks at screenshots of the result (desktop and phone) and fixes layout problems (about half a minute longer)"
+                />
+                <Toggle
                   checked={autoExpand}
                   onChange={toggleExpand}
                   label="Build thoroughly"
@@ -252,7 +272,7 @@ export default function Home() {
           </div>
         </div>
         <p className="mt-3 max-w-3xl text-center text-xs text-white/60" aria-live="polite">
-          {flowText(askFirst, planFirst, autoExpand)}
+          {flowText(askFirst, planFirst, autoExpand, autoReview)}
         </p>
         <div className="mt-4 flex max-w-3xl flex-wrap items-center justify-center gap-2" aria-label="Example prompts">
           <span className="text-xs text-white/60">Try:</span>
