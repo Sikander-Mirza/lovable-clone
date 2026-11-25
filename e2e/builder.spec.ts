@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { brandScale } from "../lib/theme";
-import { CANNED_REPLY, buildSite, mockAI } from "./helpers";
+import { CANNED_REPLY, KIT_REPLY, buildSite, mockAI } from "./helpers";
 
 test.describe("landing page", () => {
   test("has a skip link, example prompts and a caption that follows the options", async ({ page }) => {
@@ -31,6 +31,75 @@ async function settled(page: import("@playwright/test").Page) {
   await expect(page.frameLocator('iframe[title="Preview"]').getByRole("button", { name: "Shop beans" })).toHaveCSS("background-color", rgb);
   await page.waitForTimeout(1500);
 }
+
+test.describe("motion kit (lovable-ui)", () => {
+  test.beforeEach(async ({ page }) => {
+    await mockAI(page, { reply: KIT_REPLY });
+    await buildSite(page);
+  });
+  const frame = (page: import("@playwright/test").Page) => page.frameLocator('iframe[title="Preview"]');
+
+  test("a section reveals on scroll and a counter counts up to its value", async ({ page }) => {
+    const f = frame(page);
+    await expect(f.getByRole("heading", { name: "Alive by design" })).toHaveCSS("opacity", "1", { timeout: 60_000 });
+    // The stats are below the fold: invisible until scrolled to, then they fade in and count up.
+    const stat = f.getByTestId("stat");
+    const wrapper = stat.locator("xpath=.."); // Stagger wraps each child in a Reveal, which carries the opacity
+    await expect(wrapper).toHaveCSS("opacity", "0");
+    await stat.scrollIntoViewIfNeeded();
+    await expect(wrapper).toHaveCSS("opacity", "1", { timeout: 10_000 });
+    await expect(stat).toContainText("1,200+", { timeout: 10_000 });
+  });
+
+  test("the navbar changes when the page scrolls", async ({ page }) => {
+    const f = frame(page);
+    const nav = f.getByTestId("nav");
+    await expect(nav).toHaveClass(/bg-transparent/, { timeout: 60_000 });
+    await f.getByText("How long does it take?").scrollIntoViewIfNeeded();
+    await expect(nav).toHaveClass(/bg-white/);
+  });
+
+  test("the accordion opens one answer at a time", async ({ page }) => {
+    const f = frame(page);
+    const q1 = f.getByRole("button", { name: /How long does it take/ });
+    const q2 = f.getByRole("button", { name: /Do you ship worldwide/ });
+    await expect(q1).toHaveAttribute("aria-expanded", "true", { timeout: 60_000 });
+    await q2.scrollIntoViewIfNeeded();
+    await q2.click();
+    await expect(q2).toHaveAttribute("aria-expanded", "true");
+    await expect(q1).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("a carousel slide opens the lightbox, and Escape closes it", async ({ page }) => {
+    const f = frame(page);
+    const slide = f.getByRole("button", { name: "Shot 2" });
+    await slide.scrollIntoViewIfNeeded();
+    await slide.click();
+    const box = f.getByRole("dialog", { name: "Shot 2" });
+    await expect(box).toBeVisible();
+    await f.getByRole("button", { name: "Next image" }).click();
+    await expect(f.getByRole("dialog", { name: "Shot 3" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(f.getByRole("dialog")).toBeHidden();
+  });
+
+  test("the review screenshot shows every section in its final state", async ({ page }) => {
+    // Sections below the fold are still hidden (opacity 0) until the screenshot code reveals them.
+    const shots: string[] = [];
+    await page.route("**/api/generate", (route) => {
+      try {
+        const b = JSON.parse(route.request().postData() ?? "{}");
+        shots.push(...(b.messages.at(-1).images ?? []));
+      } catch {}
+      return route.fulfill({ status: 200, contentType: "text/plain", body: KIT_REPLY });
+    });
+    await page.waitForTimeout(3000);
+    await page.getByRole("button", { name: "Site health report" }).click();
+    await page.getByRole("button", { name: "Visual review with AI" }).click();
+    await expect.poll(() => shots.length, { timeout: 90_000 }).toBeGreaterThanOrEqual(2);
+    expect(shots[0].length).toBeGreaterThan(5000);
+  });
+});
 
 test.describe("layout measuring", () => {
   // The canned Hero plus one box pushed 96px past the left edge of the screen.

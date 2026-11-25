@@ -76,3 +76,53 @@ export async function buildSite(page: Page) {
   await page.keyboard.press("Enter");
   await page.waitForURL(/\/project\//);
 }
+
+/** A site that uses the lovable-ui kit: reveal on scroll, a counter, a carousel, an accordion and a lightbox. */
+export const KIT_REPLY = `Direction: lively editorial studio.
+<file path="/theme.json">
+{"brand":"#92400e","font":"Inter","headingFont":"Playfair Display"}
+</file>
+<file path="/site.json">
+{"seo":{"title":"Kit Studio","description":"A lively studio.","lang":"en"},"whatsapp":{"enabled":false,"number":"","message":""}}
+</file>
+<file path="/App.js">
+import React, { useState } from "react";
+import { Reveal, Stagger, Counter, Carousel, Accordion, Lightbox, Marquee, useScrolled, ScrollProgress } from "lovable-ui";
+export default function App() {
+  const scrolled = useScrolled(40);
+  const [open, setOpen] = useState(null);
+  const shots = [1, 2, 3, 4].map((n) => ({ src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400'><rect width='600' height='400' fill='%23" + (n * 2) + "a" + (n * 3) + "'/></svg>", alt: "Shot " + n, caption: "Caption " + n }));
+  return (
+    <div className="bg-brand-50">
+      <ScrollProgress />
+      <nav data-testid="nav" className={"sticky top-0 z-40 p-4 transition " + (scrolled ? "bg-white shadow" : "bg-transparent")}>Kit Studio</nav>
+      <section className="flex min-h-screen items-center px-8">
+        <Reveal><h1 className="text-6xl font-bold">Alive by design</h1></Reveal>
+      </section>
+      <section className="px-8 py-24">
+        <Stagger className="grid grid-cols-3 gap-6">
+          <div data-testid="stat">Projects <b><Counter to={1200} suffix="+" /></b></div>
+          <div>Awards <b><Counter to={48} /></b></div>
+          <div>Years <b><Counter to={12} /></b></div>
+        </Stagger>
+      </section>
+      <section className="px-8 py-12">
+        <Marquee speed={20}><span>Alpha</span><span>Beta</span><span>Gamma</span></Marquee>
+      </section>
+      <section className="px-8 py-24">
+        <Carousel itemWidth="300px">
+          {shots.map((s, i) => (
+            <button key={i} type="button" onClick={() => setOpen(i)} className="h-40 w-full rounded bg-brand-600 text-white">{s.alt}</button>
+          ))}
+        </Carousel>
+        <Lightbox images={shots} index={open} onClose={() => setOpen(null)} onChange={setOpen} />
+      </section>
+      <section className="px-8 py-24">
+        <Accordion items={[{ q: "How long does it take?", a: "About two weeks." }, { q: "Do you ship worldwide?", a: "Yes, everywhere." }]} />
+      </section>
+      <div style={{ height: 600 }} />
+    </div>
+  );
+}
+</file>
+Built a lively site.`;

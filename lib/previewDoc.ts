@@ -4,6 +4,7 @@
 
 import { fontsHref, parseTheme, tailwindConfig } from "./theme";
 import { htmlAttrs, parseSite, scriptFontCss, scriptFontLink, whatsappWidget } from "./site";
+import { UI_KIT_SOURCE } from "./uiKit";
 
 const REACT = "18.3.1";
 
@@ -57,6 +58,9 @@ export function submitForm(name, data) {
 export default { submitForm: submitForm };
 `);
 
+// `import { Reveal, Counter } from "lovable-ui"`: the motion and interaction kit (lib/uiKit.ts).
+const UI_KIT_SHIM = "data:text/javascript," + encodeURIComponent(UI_KIT_SOURCE);
+
 const IMPORT_MAP = {
   imports: {
     react: `https://esm.sh/react@${REACT}`,
@@ -66,6 +70,7 @@ const IMPORT_MAP = {
     "lucide-react": `https://esm.sh/lucide-react@0.468.0?external=react`,
     "react-router-dom": RR_SHIM,
     lovable: LOVABLE_SHIM,
+    "lovable-ui": UI_KIT_SHIM,
     "framer-motion": `https://esm.sh/framer-motion@11.15.0?external=react,react-dom`,
     recharts: `https://esm.sh/recharts@2.15.0?external=react,react-dom`,
     "date-fns": `https://esm.sh/date-fns@4.1.0`,
@@ -166,9 +171,8 @@ run();
 parent.postMessage({ type: "preview-shell" }, "*");
 
 // The builder asks for a small screenshot of the home page (for the project cards).
-window.addEventListener("message", async (e) => {
-  const d = e.data;
-  if (e.source !== parent || !d || d.type !== "capture") return;
+// One screenshot at a time: a card thumbnail and a design review must not scroll and reveal the page under each other.
+async function capture(d) {
   const review = d.mode === "review"; // a tall screenshot for the AI's visual review, of whatever page is showing
   if (!review && window.__lvRoute && window.__lvRoute !== "/") return;
   const y = window.scrollY;
@@ -182,6 +186,9 @@ window.addEventListener("message", async (e) => {
         document.head.appendChild(s);
       });
     }
+    // Scroll animations (lovable-ui) only play once a section is on screen: show every section in its final state first.
+    window.dispatchEvent(new Event("lovable-ui:reveal-all"));
+    await new Promise((r) => setTimeout(r, 1600));
     window.scrollTo(0, 0);
     const W = Math.max(320, window.innerWidth);
     if (review) {
@@ -199,6 +206,12 @@ window.addEventListener("message", async (e) => {
   } finally {
     window.scrollTo(0, y);
   }
+}
+let captureQueue = Promise.resolve();
+window.addEventListener("message", (e) => {
+  const d = e.data;
+  if (e.source !== parent || !d || d.type !== "capture") return;
+  captureQueue = captureQueue.then(() => capture(d)).catch(() => {});
 });
 
 // Live updates while the AI is writing: swap the files and re-render in place, so the page never reloads (no white flash).

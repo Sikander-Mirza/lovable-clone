@@ -2,6 +2,7 @@
 // Vite + React + Tailwind scaffold so the repo works with `npm install && npm run dev`.
 
 import { THEME_PATH, fontsHref, parseTheme, tailwindConfig } from "./theme";
+import { UI_KIT_SOURCE } from "./uiKit";
 import { SITE_PATH, htmlAttrs, parseSite, scriptFontCss, scriptFontLink, seoTags, whatsappWidget } from "./site";
 
 const slug = (s: string) =>
@@ -84,6 +85,8 @@ export async function submitForm(name, data) {
 
 export default { submitForm };
 `;
+  // `import { Reveal, Counter } from "lovable-ui"`: the motion and interaction kit, plain JavaScript.
+  out["src/lovable-ui.js"] = UI_KIT_SOURCE;
   out[".env.example"] = `# Where form submissions go (optional). Without these they stay in the visitor's browser.
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
@@ -96,7 +99,12 @@ import { fileURLToPath } from "node:url";
 
 // Generated components use JSX inside .js files.
 export default defineConfig({
-  resolve: { alias: { lovable: fileURLToPath(new URL("./src/lovable.js", import.meta.url)) } },
+  resolve: {
+    alias: {
+      lovable: fileURLToPath(new URL("./src/lovable.js", import.meta.url)),
+      "lovable-ui": fileURLToPath(new URL("./src/lovable-ui.js", import.meta.url)),
+    },
+  },
   plugins: [react({ include: /\\.(js|jsx)$/ })],
   esbuild: { loader: "jsx", include: /src\\/.*\\.jsx?$/, exclude: [] },
   optimizeDeps: { esbuildOptions: { loader: { ".js": "jsx" } } },

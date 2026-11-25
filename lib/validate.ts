@@ -5,6 +5,7 @@
 import { transform } from "esbuild";
 import { PHOTOS } from "./photos";
 import { THEME_PATH } from "./theme";
+import { UI_KIT_EXPORTS } from "./uiKit";
 
 export type Issue = { file: string; message: string; severity: "error" | "warn" };
 
@@ -19,6 +20,7 @@ const ALLOWED = new Set([
   "recharts",
   "date-fns",
   "lovable",
+  "lovable-ui",
 ]);
 
 const KNOWN_PHOTO_IDS = new Set(Object.values(PHOTOS).flat());
@@ -86,7 +88,18 @@ export async function validateProject(files: Record<string, string>): Promise<Is
           issues.push({ file: path, severity: "error", message: `Cannot find file "${spec}" (imported here). Create it or fix the path.` });
         }
       } else if (!ALLOWED.has(spec)) {
-        issues.push({ file: path, severity: "error", message: `Package "${spec}" is not available. Allowed: react, react-dom, lucide-react, react-router-dom, framer-motion, recharts, date-fns.` });
+        issues.push({ file: path, severity: "error", message: `Package "${spec}" is not available. Allowed: react, react-dom, lucide-react, react-router-dom, framer-motion, recharts, date-fns, lovable, lovable-ui.` });
+      } else if (spec === "lovable-ui" && named) {
+        for (const raw of named.split(",")) {
+          const name = raw.trim().split(/\s+as\s+/)[0];
+          if (name && !(UI_KIT_EXPORTS as readonly string[]).includes(name)) {
+            issues.push({
+              file: path,
+              severity: "error",
+              message: `"${name}" is not exported by lovable-ui. It exports: ${UI_KIT_EXPORTS.join(", ")}.`,
+            });
+          }
+        }
       } else if (spec === "lucide-react" && named) {
         for (const raw of named.split(",")) {
           const name = raw.trim().split(/\s+as\s+/)[0];
