@@ -515,7 +515,8 @@ export default function Preview({
             </button>
           )}
         </div>
-        {error && (
+        {/* While the AI is still writing, files are incomplete and errors are expected: only report one once the build is over. */}
+        {error && !building && (
           <div className="ml-3 flex items-center gap-2">
             <span className="text-xs text-red-400">Error in preview</span>
             {onFix && (
