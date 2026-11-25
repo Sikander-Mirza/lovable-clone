@@ -98,6 +98,11 @@ test.describe("motion kit (lovable-ui)", () => {
     await page.getByRole("button", { name: "Visual review with AI" }).click();
     await expect.poll(() => shots.length, { timeout: 90_000 }).toBeGreaterThanOrEqual(2);
     expect(shots[0].length).toBeGreaterThan(5000);
+    // The screenshots carry the site's own web fonts (embedded as data URLs), not system fonts.
+    const child = page.frames().find((f) => f !== page.mainFrame())!;
+    const fontCss = await child.evaluate(() => String((window as unknown as { __lvFontCss?: string }).__lvFontCss ?? ""));
+    expect(fontCss.length).toBeGreaterThan(50_000);
+    expect(fontCss).toMatch(/font-family: 'Playfair Display'/);
   });
 });
 

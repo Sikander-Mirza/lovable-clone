@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { matchedPhotos, parseQueries, photosBlock, searchPhotos, toPhoto, wantsPhotos } from "../lib/unsplash";
+import { parseQueries, photosBlock, photosForQueries, searchPhotos, toPhoto, wantsPhotos } from "../lib/unsplash";
 
 const api = (over: Record<string, unknown> = {}) => ({
   urls: { raw: "https://images.unsplash.com/photo-1532712938310-34cb3982ef74?ixid=abc&ixlib=rb-4.1.0" },
@@ -73,7 +73,6 @@ test("searching caches results and fails loudly on an API error", async () => {
   await assert.rejects(searchPhotos("another one", "k", 8, bad), /Unsplash 403/);
 });
 
-test("matchedPhotos asks the model, searches and returns an empty string for tools", async () => {
-  assert.equal(await matchedPhotos("a counter app", "k", async () => "[]"), "");
-  assert.equal(await matchedPhotos("anything", "k", async () => "I cannot"), "");
+test("no queries means no photo block, and failing searches are skipped", async () => {
+  assert.equal(await photosForQueries([], "k"), "");
 });

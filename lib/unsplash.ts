@@ -95,17 +95,8 @@ export function photosBlock(groups: PhotoGroup[]): string {
   ].join("\n");
 }
 
-export const QUERY_SYSTEM = `You pick stock-photo search queries for a website that is about to be built.
-Reply with ONLY a JSON array of 2 to 4 short English search queries (2 to 4 words each) for Unsplash photos that fit this site's real subject (what it sells or shows), not generic business clichés. Cover different needs, for example a wide hero scene, close-up detail shots, and people if the site needs them.
-If the request is a small tool or app that needs no photos (counter, calculator, to-do, dashboard...) reply with [].`;
-
-/** Everything in one call: ask the model for queries, search, format. Returns "" when nothing was found. */
-export async function matchedPhotos(
-  request: string,
-  key: string,
-  ask: (system: string, user: string) => Promise<string>
-): Promise<string> {
-  const queries = parseQueries(await ask(QUERY_SYSTEM, request.slice(0, 2500)));
+/** Searches for each query and formats the result. Returns "" when nothing was found. */
+export async function photosForQueries(queries: string[], key: string): Promise<string> {
   if (!queries.length) return "";
   const groups = await Promise.all(
     queries.map(async (query) => ({ query, photos: await searchPhotos(query, key).catch(() => [] as MatchedPhoto[]) }))

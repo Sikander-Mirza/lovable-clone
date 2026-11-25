@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_THEME, brandScale, fontsHref, parseTheme, tailwindConfig } from "../lib/theme";
+import { DEFAULT_THEME, FONTS, brandScale, fontsHref, parseTheme, tailwindConfig } from "../lib/theme";
 
 test("brand scale keeps the chosen color as 600 and is ordered light to dark", () => {
   const s = brandScale("#dc2626");
@@ -31,4 +31,12 @@ import { DARK_MODE_PROMPT } from "../lib/theme";
 test("tailwind runs in class dark mode and the dark-mode request mentions the toggle", () => {
   assert.equal((tailwindConfig(parseTheme({})) as any).darkMode, "class");
   assert.match(DARK_MODE_PROMPT, /localStorage/);
+});
+
+test("modern fonts are available and a single-weight family is requested with just that weight", () => {
+  assert.ok((FONTS as readonly string[]).includes("Bricolage Grotesque"));
+  const href = fontsHref({ brand: "#111111", font: "Inter", headingFont: "Instrument Serif" });
+  assert.match(href, /family=Instrument\+Serif:wght@400(&|$)/);
+  assert.match(href, /family=Inter:wght@400;500;600;700/);
+  assert.equal(parseTheme({ "/theme.json": JSON.stringify({ brand: "#111111", font: "Manrope", headingFont: "Syne" }) }).headingFont, "Syne");
 });

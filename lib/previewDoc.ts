@@ -171,6 +171,40 @@ run();
 parent.postMessage({ type: "preview-shell" }, "*");
 
 // The builder asks for a small screenshot of the home page (for the project cards).
+// html-to-image cannot read the page's Google Fonts from inside the sandbox, so the screenshots came out in system
+// fonts. Fetch the font CSS and files ourselves (only the subsets this site can use) and hand them over as data URLs.
+async function embeddedFontCss() {
+  if (window.__lvFontCss !== undefined) return window.__lvFontCss;
+  let out = "";
+  try {
+    const link = document.querySelector('link[href*="fonts.googleapis.com/css"]');
+    if (link) {
+      const css = await (await fetch(link.href)).text();
+      const blocks = css.split("@font-face");
+      const cache = {};
+      for (let i = 1; i < blocks.length; i++) {
+        const b = blocks[i];
+        const before = blocks[i - 1];
+        const subset = before.slice(before.lastIndexOf("/*") + 2, before.lastIndexOf("*/")).trim();
+        if (!["latin", "arabic", "hebrew", "devanagari"].includes(subset)) continue;
+        const at = b.indexOf("url(");
+        const end = b.indexOf(")", at);
+        if (at < 0 || end < 0) continue;
+        const url = b.slice(at + 4, end).replace(/["']/g, "");
+        if (!cache[url]) {
+          const blob = await (await fetch(url)).blob();
+          cache[url] = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+        }
+        out += "@font-face" + b.slice(0, at) + "url(" + cache[url] + ")" + b.slice(end + 1).split("}")[0] + "}";
+      }
+    }
+  } catch (e) {
+    out = "";
+  }
+  window.__lvFontCss = out;
+  return out;
+}
+
 // One screenshot at a time: a card thumbnail and a design review must not scroll and reveal the page under each other.
 async function capture(d) {
   const review = d.mode === "review"; // a tall screenshot for the AI's visual review, of whatever page is showing
@@ -193,11 +227,26 @@ async function capture(d) {
     const W = Math.max(320, window.innerWidth);
     if (review) {
       const H = Math.min(Math.max(document.documentElement.scrollHeight, window.innerHeight), 3200);
-      const data = await window.htmlToImage.toJpeg(document.body, { quality: 0.7, pixelRatio: Math.min(1, 900 / W), width: W, height: H, skipFonts: true, backgroundColor: "#ffffff" });
+      const opts = { quality: 0.7, pixelRatio: Math.min(1, 900 / W), width: W, height: H, backgroundColor: "#ffffff" };
+      const fonts = await embeddedFontCss();
+      let data;
+      try {
+        // The site's real typography when the fonts could be embedded, otherwise (or if that fails) system fonts.
+        data = await window.htmlToImage.toJpeg(document.body, fonts ? Object.assign({ skipFonts: false, fontEmbedCSS: fonts }, opts) : Object.assign({ skipFonts: true }, opts));
+      } catch (fontErr) {
+        data = await window.htmlToImage.toJpeg(document.body, Object.assign({ skipFonts: true }, opts));
+      }
       parent.postMessage({ type: "review-shot", id: d.id, data }, "*");
     } else {
       const H = Math.min(window.innerHeight, Math.round(W * 0.625));
-      const data = await window.htmlToImage.toJpeg(document.body, { quality: 0.6, pixelRatio: 320 / W, width: W, height: H, skipFonts: true, backgroundColor: "#ffffff" });
+      const fonts = await embeddedFontCss();
+      const topts = { quality: 0.6, pixelRatio: 320 / W, width: W, height: H, backgroundColor: "#ffffff" };
+      let data;
+      try {
+        data = await window.htmlToImage.toJpeg(document.body, fonts ? Object.assign({ skipFonts: false, fontEmbedCSS: fonts }, topts) : Object.assign({ skipFonts: true }, topts));
+      } catch (fontErr) {
+        data = await window.htmlToImage.toJpeg(document.body, Object.assign({ skipFonts: true }, topts));
+      }
       parent.postMessage({ type: "thumbnail", data }, "*");
     }
   } catch (err) {

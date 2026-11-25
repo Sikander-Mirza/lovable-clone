@@ -27,7 +27,22 @@ export const FONTS = [
   "Merriweather",
   "Cairo",
   "Noto Nastaliq Urdu",
+  // Modern display and text faces: the difference between a template and a designed site.
+  "Manrope",
+  "Sora",
+  "Outfit",
+  "Plus Jakarta Sans",
+  "Bricolage Grotesque",
+  "Instrument Serif",
+  "Fraunces",
+  "Cormorant Garamond",
+  "Syne",
+  "JetBrains Mono",
 ] as const;
+
+/** Google Fonts weights per family; a family that lacks one of these makes the whole request fail. */
+const FONT_WEIGHTS: Record<string, string> = { "Instrument Serif": "400" };
+const DEFAULT_WEIGHTS = "400;500;600;700";
 
 export const BRAND_PRESETS = ["#4f46e5", "#2563eb", "#0891b2", "#059669", "#d97706", "#dc2626", "#db2777", "#7c3aed", "#111827"];
 
@@ -109,7 +124,7 @@ export function tailwindConfig(t: Theme) {
 
 export function fontsHref(t: Theme): string {
   const fams = Array.from(new Set([t.font, t.headingFont]))
-    .map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;500;600;700`)
+    .map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@${FONT_WEIGHTS[f] ?? DEFAULT_WEIGHTS}`)
     .join("&");
   return `https://fonts.googleapis.com/css2?${fams}&display=swap`;
 }

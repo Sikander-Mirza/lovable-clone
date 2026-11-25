@@ -1,6 +1,8 @@
 import { NOTICE_PREFIX } from "@/lib/notice";
 import { complete } from "@/lib/llm";
-import { matchedPhotos, wantsPhotos } from "@/lib/unsplash";
+import { BRIEF_SYSTEM, parseBrief, type Brief } from "@/lib/siteBrief";
+import { styleBlock } from "@/lib/styles";
+import { photosForQueries, wantsPhotos } from "@/lib/unsplash";
 import OpenAI from "openai";
 import { SYSTEM_PROMPT, filesContext } from "@/lib/prompt";
 import { guardRequest } from "@/lib/guard";
@@ -75,22 +77,27 @@ export async function POST(req: Request) {
     }
   }
 
-  // Topic-matched photos from Unsplash (best effort: never delay or break a build because of them).
+  // A short brief for new sites and photo requests: which style playbook fits and which photos to search for.
+  // Best effort: a slow or failed call only means the site is built without them, never that the build fails.
   let matched = "";
+  let style = "";
   const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
   const lastMsg = messages[messages.length - 1];
-  if (unsplashKey && lastMsg?.role === "user" && wantsPhotos(files, lastMsg.content)) {
-    matched = await Promise.race([
-      matchedPhotos(lastMsg.content, unsplashKey, (system, user) => complete(system, user, 8000)),
-      new Promise<string>((resolve) => setTimeout(() => resolve(""), 9000)),
-    ]).catch(() => "");
-    console.log(`[generate] matched photos: ${matched ? "found" : "none"}`);
+  if (lastMsg?.role === "user" && wantsPhotos(files, lastMsg.content)) {
+    const brief = await Promise.race([
+      complete(BRIEF_SYSTEM, lastMsg.content.slice(0, 2500), 8000).then(parseBrief),
+      new Promise<Brief>((resolve) => setTimeout(() => resolve({ style: null, queries: [] }), 9000)),
+    ]).catch((): Brief => ({ style: null, queries: [] }));
+    // The look is chosen once, for a brand-new project; later edits keep the code's existing look.
+    if (Object.keys(files).length === 0) style = styleBlock(brief.style);
+    if (unsplashKey) matched = await photosForQueries(brief.queries, unsplashKey).catch(() => "");
+    console.log(`[generate] brief: style=${brief.style ?? "none"} photos=${matched ? "found" : "none"}`);
   }
 
   // Attach the current project files to the latest user turn.
   const msgs: OpenAI.Chat.ChatCompletionMessageParam[] = messages.map((m, i) => {
     if (i === messages.length - 1 && m.role === "user") {
-      const text = `${filesContext(files, m.content)}\n\nRequest: ${m.content}${matched ? `\n\n${matched}` : ""}`;
+      const text = `${filesContext(files, m.content)}\n\nRequest: ${m.content}${style ? `\n\n${style}` : ""}${matched ? `\n\n${matched}` : ""}`;
       if (!m.images?.length) return { role: "user", content: text };
       return {
         role: "user",
