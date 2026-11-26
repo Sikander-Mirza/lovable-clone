@@ -27,6 +27,7 @@ export const UI_KIT_EXPORTS = [
 export const UI_KIT_SOURCE = String.raw`import React from "react";
 var h = React.createElement;
 var useState = React.useState, useEffect = React.useEffect, useRef = React.useRef, useCallback = React.useCallback;
+var useLayoutEffect = React.useLayoutEffect;
 
 function reduced() {
   return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -113,12 +114,55 @@ export function Reveal(props) {
   return h(props.as || "div", { ref: ref, className: props.className, style: style }, props.children);
 }
 
-/** Reveals each child one after the other (step in ms, default 90). itemClassName styles each wrapper. */
+/*
+ * Stagger never adds a box to the layout. Each child is animated directly (its own element gets the fade
+ * and slide), so grid and flex classes on the children (col-span-2, basis-1/3, ...) keep working, and a
+ * Stagger placed inside a grid still hands its children to that grid instead of becoming one lonely cell.
+ */
+function StaggerItem(props) {
+  var ref = useRef(null);
+  useLayoutEffect(function () {
+    var box = ref.current, el = box && box.firstElementChild;
+    if (!el) return;
+    if (props.itemClassName) String(props.itemClassName).split(" ").forEach(function (c) { if (c) el.classList.add(c); });
+    if (reduced() || typeof IntersectionObserver === "undefined") return;
+    var d = 28, dur = 700, delay = props.index * props.step, ease = "cubic-bezier(.22,1,.36,1)";
+    var hidden = {
+      up: "translate3d(0," + d + "px,0)", down: "translate3d(0," + (-d) + "px,0)",
+      left: "translate3d(" + d + "px,0,0)", right: "translate3d(" + (-d) + "px,0,0)",
+      zoom: "scale(.94)", none: "none"
+    }[props.from || "up"] || "none";
+    var shown = false, timer = 0;
+    function clear() { el.style.removeProperty("opacity"); el.style.removeProperty("transform"); el.style.removeProperty("transition"); }
+    function show() {
+      if (shown) return;
+      shown = true;
+      el.style.transition = "opacity " + dur + "ms " + ease + " " + delay + "ms, transform " + dur + "ms " + ease + " " + delay + "ms";
+      el.style.opacity = "1";
+      el.style.transform = "none";
+      // Hand the element back to its own classes afterwards, so hover:-translate-y-1 and friends work again.
+      timer = setTimeout(clear, dur + delay + 80);
+    }
+    el.style.opacity = "0";
+    el.style.transform = hidden;
+    var io = new IntersectionObserver(function (entries) {
+      if (entries.some(function (e) { return e.isIntersecting; })) { show(); io.disconnect(); }
+    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.05 });
+    io.observe(el);
+    var off = onRevealAll(function () { shown = true; clearTimeout(timer); clear(); });
+    return function () { io.disconnect(); off(); clearTimeout(timer); };
+  }, []);
+  return h("div", { ref: ref, style: { display: "contents" } }, props.children);
+}
+
+/** Reveals each child one after the other (step in ms, default 90). Put the grid or flex classes on the Stagger itself. */
 export function Stagger(props) {
   var kids = React.Children.toArray(props.children);
-  return h(props.as || "div", { className: props.className, style: props.style },
+  // With no classes of its own the Stagger is invisible to the layout (display: contents).
+  var style = props.className || props.style ? props.style : { display: "contents" };
+  return h(props.as || "div", { className: props.className, style: style },
     kids.map(function (k, i) {
-      return h(Reveal, { key: i, delay: i * (props.step || 90), from: props.from, className: props.itemClassName }, k);
+      return h(StaggerItem, { key: i, index: i, step: props.step || 90, from: props.from, itemClassName: props.itemClassName }, k);
     }));
 }
 

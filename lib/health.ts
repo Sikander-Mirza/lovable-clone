@@ -20,6 +20,10 @@ export type Probe = {
   clientWidth: number;
   /** Elements sticking out past the left or right screen edge (see probe() in lib/previewDoc.ts). */
   cutOff?: { tag: string; cls: string; text: string; left: number; right: number }[];
+  /** Grids that define columns but have a single child holding all the items, so everything stacks in one cell. */
+  lonelyGrids?: { cls: string; cols: number; items: number }[];
+  /** On wide screens: sections whose content huddles on one side and leaves the other empty. */
+  emptySides?: { title: string; side: "left" | "right"; usedPercent: number }[];
 };
 
 // ----------------------------------------------------------- contrast

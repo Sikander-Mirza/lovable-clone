@@ -56,3 +56,18 @@ test("the review prompt carries the measured findings, and the health check fail
   assert.equal(c.status, "fail");
   assert.match(c.fix!, /absolute -left-24 w-20/);
 });
+
+test("a lonely grid and a section hugging one side become findings", () => {
+  const text = reviewFindings([
+    {
+      label: "desktop",
+      probe: probe({
+        lonelyGrids: [{ cls: "grid grid-cols-3 gap-6", cols: 3, items: 4 }],
+        emptySides: [{ title: "Simple pricing", side: "right", usedPercent: 38 }],
+      }),
+    },
+  ]);
+  assert.match(text, /the grid class="grid grid-cols-3 gap-6" has 3 columns but only ONE child that holds 4 items/);
+  assert.match(text, /the section "Simple pricing" only uses the left 38% of the screen and leaves the other side empty/);
+  assert.equal(reviewFindings([{ label: "desktop", probe: probe({ lonelyGrids: [], emptySides: [] }) }]), "");
+});

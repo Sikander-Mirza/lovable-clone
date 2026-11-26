@@ -42,6 +42,9 @@ const DEVICES = {
   mobile: { label: "Mobile (390px)", width: "390px", Icon: Smartphone },
 } as const;
 
+/** Width of the virtual desktop used for the design review (a common laptop screen). */
+const REVIEW_VIEWPORT = 1440;
+
 const MAX_APP_DATA = 1_000_000; // chars of persisted app data per project
 
 const appDataKey = (id: string) => `lovable-clone:appdata:${id}`;
@@ -106,7 +109,12 @@ export default function Preview({
   onRedo?: () => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
+  // During a design review the page is laid out at a wide desktop width, whatever the size of the editor pane.
+  const [wide, setWide] = useState(false);
   const [device, setDevice] = useState<keyof typeof DEVICES>("desktop");
+  // The device the USER picked. Health and review temporarily switch the preview (to a phone, to a wide desktop) and put
+  // this one back; reading the state instead would restore a temporary one when two runs follow each other.
+  const userDevice = useRef<keyof typeof DEVICES>("desktop");
   const [nonce, setNonce] = useState(0);
   const [subTick, setSubTick] = useState(0); // bumps when a form submission arrives
   // True when the current AI run started from an empty project (the very first build).
@@ -164,7 +172,7 @@ export default function Preview({
   // Health report: measure the running preview at phone width, then restore the device.
   const runProbe = async (): Promise<Probe | null> => {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    const before = device;
+    const before = userDevice.current;
     setDevice("mobile");
     await sleep(1100); // let the narrower layout settle
     const id = Math.random().toString(36).slice(2);
@@ -188,7 +196,7 @@ export default function Preview({
   // Visual review: screenshot the whole page at desktop width, then at phone width, then restore the device.
   const captureReview = async (): Promise<{ shots: string[]; findings: string }> => {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    const before = device;
+    const before = userDevice.current;
     const shoot = (): Promise<string | null> =>
       new Promise((resolve) => {
         const id = Math.random().toString(36).slice(2);
@@ -224,17 +232,19 @@ export default function Preview({
     const shots: string[] = [];
     const probes: ProbeAt[] = [];
     try {
-      setDevice("desktop");
-      await sleep(900);
+      setWide(true);
+      await sleep(1100);
       probes.push({ label: "desktop", probe: await measure() });
       const a = await shoot();
       if (a) shots.push(a);
+      setWide(false);
       setDevice("mobile");
       await sleep(1100);
       probes.push({ label: "phone", probe: await measure() });
       const b = await shoot();
       if (b) shots.push(b);
     } finally {
+      setWide(false);
       setDevice(before);
     }
     return { shots, findings: reviewFindings(probes) };
@@ -492,7 +502,10 @@ export default function Preview({
                 {(Object.keys(DEVICES) as (keyof typeof DEVICES)[]).map((k) => {
                   const { Icon, label } = DEVICES[k];
                   return (
-                    <button key={k} onClick={() => setDevice(k)} title={label} aria-label={label} aria-pressed={device === k} data-active={device === k} className="seg-btn px-2">
+                    <button key={k} onClick={() => {
+                        userDevice.current = k;
+                        setDevice(k);
+                      }} title={label} aria-label={label} aria-pressed={device === k} data-active={device === k} className="seg-btn px-2">
                       <Icon size={15} />
                     </button>
                   );
@@ -629,7 +642,7 @@ export default function Preview({
                 srcDoc={nonce ? `${doc}<!--${nonce}-->` : doc}
                 sandbox="allow-scripts allow-forms allow-modals allow-popups"
                 className="h-full border-0 bg-white"
-                style={{ width: DEVICES[device].width, maxWidth: "100%" }}
+                style={wide ? { width: REVIEW_VIEWPORT, maxWidth: "none", flexShrink: 0 } : { width: DEVICES[device].width, maxWidth: "100%" }}
               />
             </div>
             {tab === "data" && <SubmissionsPanel projectId={projectId} tick={subTick} />}

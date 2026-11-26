@@ -43,11 +43,10 @@ test.describe("motion kit (lovable-ui)", () => {
     const f = frame(page);
     await expect(f.getByRole("heading", { name: "Alive by design" })).toHaveCSS("opacity", "1", { timeout: 60_000 });
     // The stats are below the fold: invisible until scrolled to, then they fade in and count up.
-    const stat = f.getByTestId("stat");
-    const wrapper = stat.locator("xpath=.."); // Stagger wraps each child in a Reveal, which carries the opacity
-    await expect(wrapper).toHaveCSS("opacity", "0");
+    const stat = f.getByTestId("stat"); // Stagger animates its children directly (no wrapper box)
+    await expect(stat).toHaveCSS("opacity", "0");
     await stat.scrollIntoViewIfNeeded();
-    await expect(wrapper).toHaveCSS("opacity", "1", { timeout: 10_000 });
+    await expect(stat).toHaveCSS("opacity", "1", { timeout: 10_000 });
     await expect(stat).toContainText("1,200+", { timeout: 10_000 });
   });
 
@@ -103,6 +102,82 @@ test.describe("motion kit (lovable-ui)", () => {
     const fontCss = await child.evaluate(() => String((window as unknown as { __lvFontCss?: string }).__lvFontCss ?? ""));
     expect(fontCss.length).toBeGreaterThan(50_000);
     expect(fontCss).toMatch(/font-family: 'Playfair Display'/);
+  });
+});
+
+function siteWith(body: string) {
+  return KIT_REPLY.replace(/<section className="flex min-h-screen[\s\S]*?<\/section>/, "").replace(
+    '<div style={{ height: 600 }} />',
+    body + '<div style={{ height: 600 }} />'
+  );
+}
+
+test.describe("layout traps", () => {
+  const frame = (page: import("@playwright/test").Page) => page.frameLocator('iframe[title="Preview"]');
+
+  test("Stagger inside a plain grid hands its children to that grid (cards sit side by side)", async ({ page }) => {
+    const reply = siteWith(
+      '<section className="px-8 py-24"><div className="grid grid-cols-3 gap-4"><Stagger><div data-testid="c1" className="h-24 bg-brand-600">A</div><div data-testid="c2" className="h-24 bg-brand-600">B</div><div data-testid="c3" className="h-24 bg-brand-600">C</div></Stagger></div></section>'
+    );
+    await mockAI(page, { reply });
+    await buildSite(page);
+    const f = frame(page);
+    await f.getByTestId("c1").scrollIntoViewIfNeeded();
+    // Measure after the staggered reveal has finished (the kit removes its inline styles when it is done).
+    await expect.poll(() => f.getByTestId("c3").evaluate((e) => (e as HTMLElement).style.opacity), { timeout: 15_000 }).toBe("");
+    const [a, b, c] = await Promise.all(["c1", "c2", "c3"].map(async (id) => f.getByTestId(id).boundingBox()));
+    expect(Math.abs(a!.y - b!.y)).toBeLessThan(2);
+    expect(Math.abs(b!.y - c!.y)).toBeLessThan(2);
+    expect(b!.x).toBeGreaterThan(a!.x + a!.width - 1);
+    expect(c!.x).toBeGreaterThan(b!.x + b!.width - 1);
+  });
+
+  test("a Stagger with grid classes keeps each child's col-span (a bento row)", async ({ page }) => {
+    const reply = siteWith(
+      '<section className="px-8 py-24"><Stagger className="grid grid-cols-4 gap-4"><div data-testid="wide" className="col-span-2 h-24 bg-brand-600">Wide</div><div data-testid="n1" className="h-24 bg-brand-600">1</div><div data-testid="n2" className="h-24 bg-brand-600">2</div></Stagger></section>'
+    );
+    await mockAI(page, { reply });
+    await buildSite(page);
+    const f = frame(page);
+    await f.getByTestId("wide").scrollIntoViewIfNeeded();
+    const wide = await f.getByTestId("wide").boundingBox();
+    const n1 = await f.getByTestId("n1").boundingBox();
+    expect(wide!.width / n1!.width).toBeGreaterThan(1.8);
+    // After the reveal finished, the cards get their own classes back (no stuck inline opacity).
+    await expect(f.getByTestId("wide")).toHaveCSS("opacity", "1", { timeout: 10_000 });
+    await expect.poll(() => f.getByTestId("wide").evaluate((e) => (e as HTMLElement).style.opacity), { timeout: 10_000 }).toBe("");
+  });
+
+  test("the visual review reports a lonely grid and a section that leaves half the screen empty", async ({ page }) => {
+    const reply = siteWith(
+      '<section className="py-24"><div className="px-8 max-w-[560px]"><h2 className="text-3xl">Simple pricing</h2><p>One</p><p>Two</p><p>Three</p><button type="button">Buy</button></div></section>' +
+        '<section className="px-8 py-24"><div className="grid grid-cols-3 gap-4"><Reveal><div>x</div><div>y</div><div>z</div></Reveal></div></section>'
+    );
+    const requests = await mockAI(page, { reply });
+    await buildSite(page);
+    await expect(frame(page).getByText("Simple pricing")).toBeAttached();
+    await page.waitForTimeout(5000); // the preview reloads once at the end of a build (theme and fonts)
+    await page.getByRole("button", { name: "Site health report" }).click();
+    await page.getByRole("button", { name: "Visual review with AI" }).click();
+    await expect.poll(() => requests.length, { timeout: 90_000 }).toBeGreaterThanOrEqual(2);
+    const last = requests[requests.length - 1].messages.at(-1)!;
+    expect(last.content).toMatch(/has 3 columns but only ONE child that holds 3 items/);
+    expect(last.content).toMatch(/the section "Simple pricing" only uses the left \d+% of the screen/);
+  });
+});
+
+test.describe("review keeps your preview size", () => {
+  test("the preview size you picked comes back after a design review", async ({ page }) => {
+    const requests = await mockAI(page);
+    await buildSite(page);
+    await settled(page);
+    await page.getByRole("button", { name: "Tablet (768px)" }).click();
+    await page.getByRole("button", { name: "Site health report" }).click();
+    await page.getByRole("button", { name: "Visual review with AI" }).click();
+    await expect.poll(() => requests.length, { timeout: 90_000 }).toBeGreaterThanOrEqual(2);
+    await expect(page.getByRole("button", { name: "Tablet (768px)" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Mobile (390px)" })).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByRole("button", { name: "Desktop" })).toHaveAttribute("aria-pressed", "false");
   });
 });
 

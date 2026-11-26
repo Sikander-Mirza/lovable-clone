@@ -113,6 +113,7 @@ export function styleBlock(id: string | null | undefined): string {
   const s = styleById(id);
   if (!s) return "";
   return [
+    `Container recipe for EVERY section (so content is centered on wide screens and never hugs the left edge): <section className="relative px-6 py-24 md:py-32"><div className="mx-auto w-full max-w-7xl">...</div></section>; a section heading block is mb-12 or more, and a grid of cards is a grid on one element whose direct children are the cards (never a grid with a single child).`,
     `Style playbook "${s.name}": this is how the site should look and feel. Follow its structure and class recipes closely and adapt the content to this business; where it conflicts with the generic design habits listed in your instructions, the playbook wins. If an Approved plan fixes the brand color or fonts, keep those and use the playbook for everything else (shapes, spacing, effects, layout patterns).`,
     s.recipe,
   ].join("\n");

@@ -173,10 +173,32 @@ parent.postMessage({ type: "preview-shell" }, "*");
 // The builder asks for a small screenshot of the home page (for the project cards).
 // html-to-image cannot read the page's Google Fonts from inside the sandbox, so the screenshots came out in system
 // fonts. Fetch the font CSS and files ourselves (only the subsets this site can use) and hand them over as data URLs.
+function describeError(err) {
+  if (err && typeof err === "object" && typeof err.type === "string" && err.target) {
+    var t = err.target;
+    return "an " + (t.tagName || "element") + " failed to load (" + String(t.currentSrc || t.src || t.href || "").slice(0, 120) + ")";
+  }
+  return String(err && err.message || err);
+}
+function withTimeout(p, ms, label) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label + " timed out")), ms))]);
+}
 async function embeddedFontCss() {
   if (window.__lvFontCss !== undefined) return window.__lvFontCss;
+  if (window.__lvFontFailAt && Date.now() - window.__lvFontFailAt < 60000) return ""; // failed a moment ago: system fonts for now
   let out = "";
   try {
+    out = await withTimeout(loadFontCss(), 20000, "fonts");
+  } catch (e) {
+    window.__lvFontFailAt = Date.now();
+    return "";
+  }
+  window.__lvFontCss = out;
+  return out;
+}
+async function loadFontCss() {
+  let out = "";
+  {
     const link = document.querySelector('link[href*="fonts.googleapis.com/css"]');
     if (link) {
       const css = await (await fetch(link.href)).text();
@@ -198,10 +220,7 @@ async function embeddedFontCss() {
         out += "@font-face" + b.slice(0, at) + "url(" + cache[url] + ")" + b.slice(end + 1).split("}")[0] + "}";
       }
     }
-  } catch (e) {
-    out = "";
   }
-  window.__lvFontCss = out;
   return out;
 }
 
@@ -223,18 +242,25 @@ async function capture(d) {
     // Scroll animations (lovable-ui) only play once a section is on screen: show every section in its final state first.
     window.dispatchEvent(new Event("lovable-ui:reveal-all"));
     await new Promise((r) => setTimeout(r, 1600));
+    // Lazy images below the fold are not loaded yet, and html-to-image fails on an image that has not loaded: load them all first.
+    const imgs = Array.from(document.images);
+    imgs.forEach((i) => { if (i.loading === "lazy") i.loading = "eager"; });
+    await Promise.race([
+      Promise.all(imgs.map((i) => (i.complete ? null : new Promise((r) => { i.addEventListener("load", r, { once: true }); i.addEventListener("error", r, { once: true }); })))),
+      new Promise((r) => setTimeout(r, 10000)),
+    ]);
     window.scrollTo(0, 0);
     const W = Math.max(320, window.innerWidth);
     if (review) {
       const H = Math.min(Math.max(document.documentElement.scrollHeight, window.innerHeight), 3200);
       const opts = { quality: 0.7, pixelRatio: Math.min(1, 900 / W), width: W, height: H, backgroundColor: "#ffffff" };
-      const fonts = await embeddedFontCss();
+      const fonts = d.fonts === false ? "" : await embeddedFontCss();
       let data;
       try {
         // The site's real typography when the fonts could be embedded, otherwise (or if that fails) system fonts.
-        data = await window.htmlToImage.toJpeg(document.body, fonts ? Object.assign({ skipFonts: false, fontEmbedCSS: fonts }, opts) : Object.assign({ skipFonts: true }, opts));
+        data = await withTimeout(window.htmlToImage.toJpeg(document.body, fonts ? Object.assign({ skipFonts: false, fontEmbedCSS: fonts }, opts) : Object.assign({ skipFonts: true }, opts)), 45000, "screenshot");
       } catch (fontErr) {
-        data = await window.htmlToImage.toJpeg(document.body, Object.assign({ skipFonts: true }, opts));
+        data = await withTimeout(window.htmlToImage.toJpeg(document.body, Object.assign({ skipFonts: true }, opts)), 45000, "screenshot");
       }
       parent.postMessage({ type: "review-shot", id: d.id, data }, "*");
     } else {
@@ -243,15 +269,15 @@ async function capture(d) {
       const topts = { quality: 0.6, pixelRatio: 320 / W, width: W, height: H, backgroundColor: "#ffffff" };
       let data;
       try {
-        data = await window.htmlToImage.toJpeg(document.body, fonts ? Object.assign({ skipFonts: false, fontEmbedCSS: fonts }, topts) : Object.assign({ skipFonts: true }, topts));
+        data = await withTimeout(window.htmlToImage.toJpeg(document.body, fonts ? Object.assign({ skipFonts: false, fontEmbedCSS: fonts }, topts) : Object.assign({ skipFonts: true }, topts)), 45000, "thumbnail");
       } catch (fontErr) {
-        data = await window.htmlToImage.toJpeg(document.body, Object.assign({ skipFonts: true }, topts));
+        data = await withTimeout(window.htmlToImage.toJpeg(document.body, Object.assign({ skipFonts: true }, topts)), 45000, "thumbnail");
       }
       parent.postMessage({ type: "thumbnail", data }, "*");
     }
   } catch (err) {
     /* best effort: cards fall back to the colored badge; a review continues without this shot */
-    parent.postMessage({ type: review ? "review-shot" : "thumbnail-error", id: d.id, data: null, message: String(err && err.message || err) }, "*");
+    parent.postMessage({ type: review ? "review-shot" : "thumbnail-error", id: d.id, data: null, message: describeError(err) }, "*");
   } finally {
     window.scrollTo(0, y);
   }
@@ -260,7 +286,12 @@ let captureQueue = Promise.resolve();
 window.addEventListener("message", (e) => {
   const d = e.data;
   if (e.source !== parent || !d || d.type !== "capture") return;
-  captureQueue = captureQueue.then(() => capture(d)).catch(() => {});
+  // A watchdog per job: one stuck screenshot must never block the ones queued behind it.
+  captureQueue = captureQueue
+    .then(() => withTimeout(capture(d), 130000, "capture"))
+    .catch((err) => {
+      parent.postMessage({ type: d.mode === "review" ? "review-shot" : "thumbnail-error", id: d.id, data: null, message: describeError(err) }, "*");
+    });
 });
 
 // Live updates while the AI is writing: swap the files and re-render in place, so the page never reloads (no white flash).
@@ -848,7 +879,41 @@ const EDITOR = String.raw`
       var text = (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40);
       cutOff.push({ tag: el.tagName.toLowerCase(), cls: cls, text: text, left: Math.round(r.left), right: Math.round(r.right) });
     });
+    // A grid with columns but a single child that holds all the items: every card shares one cell and they stack.
+    var lonelyGrids = [];
+    Array.prototype.forEach.call(document.body.querySelectorAll("*"), function (el) {
+      if (lonelyGrids.length >= 4 || el.children.length !== 1) return;
+      var cs = getComputedStyle(el);
+      if (cs.display !== "grid") return;
+      var cols = cs.gridTemplateColumns.split(" ").filter(function (t) { return t && t !== "none"; }).length;
+      var only = el.children[0];
+      if (cols < 2 || getComputedStyle(only).display === "contents" || only.children.length < 2) return;
+      lonelyGrids.push({ cls: (typeof el.className === "string" ? el.className : "").replace(/\s+/g, " ").trim().slice(0, 70), cols: cols, items: only.children.length });
+    });
+    // On a wide screen, a section whose content huddles against one side and leaves the other half empty.
+    var emptySides = [];
+    if (vw >= 1100) {
+      Array.prototype.forEach.call(document.querySelectorAll("section"), function (sec) {
+        if (emptySides.length >= 4) return;
+        var sr = sec.getBoundingClientRect();
+        if (sr.height < 220) return;
+        var minL = 1e9, maxR = -1e9, n = 0;
+        Array.prototype.forEach.call(sec.querySelectorAll("h1,h2,h3,h4,p,li,a,button,img,svg,input,video,canvas"), function (el) {
+          if (el.closest("[aria-hidden=true]")) return;
+          var r = el.getBoundingClientRect();
+          if (r.width < 24 || r.height < 10) return;
+          var pos = getComputedStyle(el).position;
+          if (pos === "fixed") return;
+          n++; minL = Math.min(minL, r.left); maxR = Math.max(maxR, r.right);
+        });
+        if (n < 3) return;
+        var title = ((sec.querySelector("h1,h2,h3") || {}).textContent || "").replace(/\s+/g, " ").trim().slice(0, 50);
+        if (minL < vw * 0.12 && maxR < vw * 0.68) emptySides.push({ title: title, side: "right", usedPercent: Math.round(maxR / vw * 100) });
+        else if (minL > vw * 0.32 && maxR > vw * 0.88) emptySides.push({ title: title, side: "left", usedPercent: Math.round((vw - minL) / vw * 100) });
+      });
+    }
     return {
+      lonelyGrids: lonelyGrids, emptySides: emptySides,
       cutOff: cutOff,
       h1Count: document.querySelectorAll("h1").length, headingSkips: skips,
       imgsTotal: imgs.length, imgsNoAlt: noAlt, buttonsNoName: noName, inputsNoLabel: noLabel,

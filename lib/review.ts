@@ -25,6 +25,16 @@ export function reviewFindings(probes: ProbeAt[]): string {
       lines.push(`- At ${label} width the page scrolls sideways (content is ${probe.scrollWidth}px wide on a ${probe.clientWidth}px screen).`);
     }
     for (const c of probe.cutOff ?? []) lines.push(`- At ${label} width this sticks out past the screen edge: ${describeCutOff(c)}`);
+    for (const g of probe.lonelyGrids ?? []) {
+      lines.push(
+        `- At ${label} width the grid class="${g.cls}" has ${g.cols} columns but only ONE child that holds ${g.items} items, so they all stack in a single narrow column. Put the grid classes on the element that directly contains the items (if it is a Stagger, give the Stagger the grid classes).`
+      );
+    }
+    for (const e of probe.emptySides ?? []) {
+      lines.push(
+        `- At ${label} width the section "${e.title || "(untitled)"}" only uses ${e.side === "right" ? "the left" : "the right"} ${e.usedPercent}% of the screen and leaves the other side empty. Center its container (mx-auto w-full max-w-7xl) and make its grid fill the width.`
+      );
+    }
   }
   return lines.join("\n");
 }
