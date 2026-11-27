@@ -41,7 +41,7 @@ Layout: asymmetric 12-column grids (grid grid-cols-12 gap-x-8; text col-span-12 
 Buttons: primary rounded-full bg-neutral-900 px-7 py-3.5 text-sm tracking-wide text-white transition hover:bg-brand-700; secondary is an underlined text link: group inline-flex items-center gap-2 border-b border-neutral-900 pb-1 text-sm with an arrow that slides group-hover:translate-x-1.
 Images: aspect-[4/5] or aspect-[3/2] object-cover with ONE corner style for the whole site (rounded-none or rounded-2xl), inside overflow-hidden with transition duration-700 group-hover:scale-105; captions text-xs text-neutral-500.
 Cards, if any: no shadows, border border-neutral-900/10 p-8 transition hover:bg-white.
-Rhythm: section padding py-28 md:py-40, container max-w-6xl px-6, one big image or quote per screen, a Marquee of services set in large serif type, a footer with a huge wordmark.
+Rhythm: section padding py-20 md:py-28, container max-w-6xl px-6, one big image or quote per screen, a Marquee of services set in large serif type, a footer with a huge wordmark.
 Avoid: gradients, drop shadows, pill badges, icons in colored circles, three equal cards in a row as the default layout.`,
   },
   {
@@ -113,7 +113,7 @@ export function styleBlock(id: string | null | undefined): string {
   const s = styleById(id);
   if (!s) return "";
   return [
-    `Container recipe for EVERY section (so content is centered on wide screens and never hugs the left edge): <section className="relative px-6 py-24 md:py-32"><div className="mx-auto w-full max-w-7xl">...</div></section>; a section heading block is mb-12 or more, and a grid of cards is a grid on one element whose direct children are the cards (never a grid with a single child).`,
+    `Container recipe for EVERY section (so content is centered on wide screens and never hugs the left edge): <section className="relative px-6 py-16 md:py-24"><div className="mx-auto w-full max-w-7xl">...</div></section>; neighbouring sections already add up their padding, so never add extra spacer divs or bigger section padding; a section heading block is mb-12, and a grid of cards is a grid on one element whose direct children are the cards (never a grid with a single child).`,
     `Style playbook "${s.name}": this is how the site should look and feel. Follow its structure and class recipes closely and adapt the content to this business; where it conflicts with the generic design habits listed in your instructions, the playbook wins. If an Approved plan fixes the brand color or fonts, keep those and use the playbook for everything else (shapes, spacing, effects, layout patterns).`,
     s.recipe,
   ].join("\n");

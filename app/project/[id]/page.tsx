@@ -20,6 +20,7 @@ import { EXPAND_BELOW_CHARS, EXPAND_PROMPT, fixPrompt, staticFixPrompt } from "@
 import type { Issue } from "@/lib/validate";
 import { formatPlan, type Plan } from "@/lib/plan";
 import { brandCheck, brandFixPrompt } from "@/lib/brandCheck";
+import { fixPhotoUrls } from "@/lib/photoUrls";
 import { checkPlan, planFixPrompt } from "@/lib/planCheck";
 import { SITE_PATH, serializeSite, type SiteSettings } from "@/lib/site";
 import { sameFiles, versionNumber } from "@/lib/versions";
@@ -150,7 +151,8 @@ export default function ProjectPage() {
       { ...p.files, ...parsed },
       restoreEdits(result.edits, compact.table)
     );
-    const merged = applyDeletes(edited, result.deletes);
+    // A known slip with one correct repair (an Unsplash URL missing "photo-") is fixed here, without another AI pass.
+    const merged = fixPhotoUrls(applyDeletes(edited, result.deletes));
     // A failed request (no files or edits, only an error) must not become a "version".
     const failed = Object.keys(parsed).length === 0 && result.edits.length === 0 && raw.includes("[error]");
     const next: Project = {

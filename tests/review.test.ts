@@ -71,3 +71,22 @@ test("a lonely grid and a section hugging one side become findings", () => {
   assert.match(text, /the section "Simple pricing" only uses the left 38% of the screen and leaves the other side empty/);
   assert.equal(reviewFindings([{ label: "desktop", probe: probe({ lonelyGrids: [], emptySides: [] }) }]), "");
 });
+
+test("a grid row with a hole becomes a finding", () => {
+  const text = reviewFindings([{ label: "desktop", probe: probe({ raggedRows: [{ cls: "grid grid-cols-6", row: 1, emptyPx: 220 }] }) }]);
+  assert.match(text, /row 1 of the grid class="grid grid-cols-6" leaves a 220px hole/);
+  assert.match(text, /add up to the number of columns/);
+});
+
+test("broken images are reported once, in the review and in the health check", () => {
+  const b = { src: "/brand-logos/linear.svg", alt: "Linear" };
+  const text = reviewFindings([
+    { label: "desktop", probe: probe({ brokenImages: [b] }) },
+    { label: "phone", probe: probe({ brokenImages: [b, { src: "", alt: "" }] }) },
+  ]);
+  assert.equal((text.match(/linear\.svg/g) ?? []).length, 1);
+  assert.match(text, /"no alt text" \(src is empty\)/);
+  const check = probeChecks(probe({ brokenImages: [b] })).find((c) => c.id === "images-load")!;
+  assert.equal(check.status, "fail");
+  assert.equal(probeChecks(probe()).find((c) => c.id === "images-load")!.status, "pass");
+});

@@ -24,6 +24,10 @@ export type Probe = {
   lonelyGrids?: { cls: string; cols: number; items: number }[];
   /** On wide screens: sections whose content huddles on one side and leaves the other empty. */
   emptySides?: { title: string; side: "left" | "right"; usedPercent: number }[];
+  /** On wide screens: a grid row that leaves a hole because its cards do not add up to the grid's width. */
+  raggedRows?: { cls: string; row: number; emptyPx: number }[];
+  /** Images that do not load (a missing file, an empty src). */
+  brokenImages?: { src: string; alt: string }[];
 };
 
 // ----------------------------------------------------------- contrast
@@ -127,6 +131,10 @@ export function staticChecks(files: Record<string, string>): Check[] {
 
 // ----------------------------------------------------------- live checks
 
+export function describeBroken(b: NonNullable<Probe["brokenImages"]>[number]): string {
+  return `"${b.alt || "no alt text"}" (src ${b.src ? b.src : "is empty"})`;
+}
+
 /** One element that sticks out past the screen edge, as a short readable line. */
 export function describeCutOff(c: NonNullable<Probe["cutOff"]>[number]): string {
   const cls = c.cls ? ` class="${c.cls}"` : "";
@@ -171,6 +179,14 @@ export function probeChecks(p: Probe): Check[] {
       status: p.scrollWidth <= p.clientWidth + 1 ? "pass" : "fail",
       detail: p.scrollWidth <= p.clientWidth + 1 ? undefined : `Content is ${p.scrollWidth}px wide on a ${p.clientWidth}px screen`,
       fix: "Find what is wider than the phone screen (fixed widths, long unbroken text, wide images, negative margins) and make it fit; add overflow-x-hidden only as a last resort.",
+    },
+    {
+      id: "images-load", group: "Accessibility", label: "All images load",
+      status: p.brokenImages?.length ? "fail" : "pass",
+      detail: p.brokenImages?.length ? `${p.brokenImages.length} image(s) are broken, for example ${describeBroken(p.brokenImages[0])}` : undefined,
+      fix: p.brokenImages?.length
+        ? `These images are broken: ${p.brokenImages.map(describeBroken).join("; ")}. The project has no image files of its own: use a real photo URL from your instructions, or replace a logo with a styled text wordmark or a lucide icon.`
+        : undefined,
     },
     {
       id: "layout-cutoff", group: "Mobile", label: "Nothing sticks out past the screen edge",

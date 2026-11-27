@@ -23,6 +23,9 @@ const ALLOWED = new Set([
   "lovable-ui",
 ]);
 
+/** A quoted path to a local image file: "/x.svg", "./img/a.png" (not http:, not data:). */
+const LOCAL_IMAGE_RE = /(["'`])((?:\.{0,2}\/)[^"'`\s]*\.(?:svg|png|jpe?g|webp|gif|avif))\1/gi;
+
 const KNOWN_PHOTO_IDS = new Set(Object.values(PHOTOS).flat());
 
 let lucideNames: Set<string> | null = null;
@@ -107,6 +110,19 @@ export async function validateProject(files: Record<string, string>): Promise<Is
             issues.push({ file: path, severity: "error", message: `Icon "${name}" does not exist in lucide-react. Use a real icon name.` });
           }
         }
+      }
+    }
+
+    // Models invent local files ("/brand-logos/linear.svg"). The project has none unless it is in `files`.
+    for (const m of code.matchAll(LOCAL_IMAGE_RE)) {
+      const ref = m[2];
+      const clean = ref.replace(/^\.?\//, "/");
+      if (!(clean in files) && !(`/public${clean}` in files)) {
+        issues.push({
+          file: path,
+          severity: "error",
+          message: `Image "${ref}" does not exist: the project has no image files. Use a photo URL from your instructions, or draw a logo as a styled text wordmark or a lucide icon.`,
+        });
       }
     }
 

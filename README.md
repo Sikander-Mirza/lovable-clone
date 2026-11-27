@@ -199,3 +199,11 @@ Screenshots taken by the preview (card thumbnails and the design review) now emb
 - **The review lays the page out at 1440px** (a virtual wide desktop, `REVIEW_VIEWPORT` in `components/Preview.tsx`), not at the width of the editor pane, so problems that only show on a big screen are measured. The size you picked in the toolbar is restored afterwards (`userDevice`), even when two runs follow each other.
 - **Screenshots are more robust**: lazy images are loaded first (html-to-image fails on an image that has not loaded), font and screenshot steps have timeouts, one stuck screenshot can no longer block the ones queued behind it (a watchdog per job), and an error from html-to-image is described instead of printed as `[object Event]`.
 - The style playbooks start with a container recipe (`mx-auto w-full max-w-7xl`) for every section, so content is centered on wide screens.
+
+## Broken images and grid holes
+- **No local image files.** Models invent paths such as `/brand-logos/linear.svg`, which show as broken images. The prompt forbids local image files (logo strips are text wordmarks or lucide icons), and `lib/validate.ts` reports a quoted local image path that is not a project file as an error, so the automatic fix pass replaces it.
+- **One broken image no longer fails the screenshot.** html-to-image rejects the whole picture when any image cannot load, which silently skipped the design review. Broken images (empty `src`, failed load) are now left out of the screenshot.
+- **The probe reports broken images** (`brokenImages`): the Health panel has an "All images load" check and the design review lists each broken image once.
+- **Grid holes** (`raggedRows`): on wide screens a grid row in which some columns have no card is reported, for example a bento whose spans add up to 5 of 6, or 2 cards left over in a 6-column row. It judges columns rather than card widths (centered cards are fine), treats a slightly raised featured card as part of its row, looks through the `display: contents` wrappers of `Stagger`, and accepts the normal shorter last row of an equal-card grid.
+- **Unsplash URLs without `photo-`** (`images.unsplash.com/1438761681033-...`) are repaired in code (`lib/photoUrls.ts`) when the model's files are applied.
+- Section padding in the style playbooks is smaller, because the padding of neighbouring sections adds up.

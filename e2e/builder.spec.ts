@@ -166,6 +166,55 @@ test.describe("layout traps", () => {
   });
 });
 
+test.describe("bento rows", () => {
+  test("a row with a hole is reported, a full bento and a shorter last row of equal cards are not", async ({ page }) => {
+    const card = (cls: string) => `<div className="h-24 bg-brand-600 ${cls}">c</div>`;
+    const grid = (name: string, cols: string, cards: string) =>
+      `<section className="px-8 py-8"><div className="${name} grid ${cols} gap-4">${cards}</div></section>`;
+    const reply = siteWith(
+      grid("bento-bad", "grid-cols-6", card("col-span-3") + card("col-span-2") + card("col-span-2") + card("col-span-2") + card("col-span-2")) +
+        grid("bento-ok", "grid-cols-6", card("col-span-4") + card("col-span-2") + card("col-span-2") + card("col-span-2") + card("col-span-2")) +
+        grid("cards-ok", "grid-cols-3", card("") + card("") + card("") + card("") + card("")) +
+        grid("centered-ok", "grid-cols-4 justify-items-center", card("w-24") + card("w-24") + card("w-24") + card("w-24")) +
+        grid("raised-ok", "grid-cols-3", card("") + card("-translate-y-4") + card("")) +
+        grid("stub-bad", "grid-cols-6", Array.from({ length: 8 }, () => card("")).join("")) +
+        // The same hole inside a Stagger (its display: contents wrappers must not hide the cards from the measurement).
+        `<section className="px-8 py-8"><Stagger className="staggered-bad grid grid-cols-4 gap-4">${card("col-span-2")}${card("")}</Stagger></section>`
+    );
+    const requests = await mockAI(page, { reply });
+    await buildSite(page);
+    await expect(page.frameLocator('iframe[title="Preview"]').locator(".bento-bad")).toBeAttached();
+    await page.waitForTimeout(5000); // the preview reloads once at the end of a build
+    await page.getByRole("button", { name: "Site health report" }).click();
+    await page.getByRole("button", { name: "Visual review with AI" }).click();
+    await expect.poll(() => requests.length, { timeout: 90_000 }).toBeGreaterThanOrEqual(2);
+    const text = requests[requests.length - 1].messages.at(-1)!.content;
+    expect(text).toMatch(/row 1 of the grid class="bento-bad[^"]*" leaves a \d+px hole/);
+    expect(text).not.toMatch(/of the grid class="bento-ok/);
+    expect(text).not.toMatch(/of the grid class="cards-ok/);
+    expect(text).not.toMatch(/of the grid class="centered-ok/);
+    expect(text).not.toMatch(/of the grid class="raised-ok/);
+    expect(text).toMatch(/row 2 of the grid class="stub-bad[^"]*" leaves a/);
+    expect(text).toMatch(/row 1 of the grid class="staggered-bad[^"]*" leaves a/);
+  });
+});
+
+test.describe("broken images", () => {
+  test("one broken image does not stop the design review, and the AI is told about it", async ({ page }) => {
+    const reply = siteWith(
+      '<section className="px-8 py-24"><img src="https://invalid.invalid/logo.png" alt="Partner logo" className="h-10 w-40" /><img src="" alt="Empty one" className="h-10 w-40" /></section>'
+    );
+    const requests = await mockAI(page, { reply, review: true });
+    await buildSite(page);
+    await expect.poll(() => requests.filter((r) => r.messages.at(-1)?.images?.length).length, { timeout: 120_000 }).toBeGreaterThanOrEqual(1);
+    const sent = requests.find((r) => r.messages.at(-1)?.images?.length)!.messages.at(-1)!;
+    expect(sent.images).toHaveLength(2);
+    expect(sent.images![0].length).toBeGreaterThan(5000);
+    expect(sent.content).toMatch(/This image is broken: "Partner logo" \(src https:\/\/invalid\.invalid\/logo\.png\)/);
+    expect(sent.content).toMatch(/This image is broken: "Empty one" \(src is empty\)/);
+  });
+});
+
 test.describe("review keeps your preview size", () => {
   test("the preview size you picked comes back after a design review", async ({ page }) => {
     const requests = await mockAI(page);

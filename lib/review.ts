@@ -1,4 +1,4 @@
-import { describeCutOff, type Probe } from "./health";
+import { describeBroken, describeCutOff, type Probe } from "./health";
 
 // Visual self-review: the builder screenshots the running preview (desktop and phone) and asks
 // the model to look at it like a designer and fix real visual defects.
@@ -19,6 +19,9 @@ export type ProbeAt = { label: string; probe: Probe | null };
 /** The measured layout problems of the live page at each width, as text for the review prompt ("" when clean). */
 export function reviewFindings(probes: ProbeAt[]): string {
   const lines: string[] = [];
+  // Broken images are the same at every width: report each once.
+  const broken = new Set(probes.flatMap(({ probe }) => (probe?.brokenImages ?? []).map(describeBroken)));
+  for (const b of broken) lines.push(`- This image is broken: ${b}. The project has no image files: use a different photo URL copied exactly from your instructions (the path starts with photo-), or a styled text wordmark or lucide icon for a logo.`);
   for (const { label, probe } of probes) {
     if (!probe) continue;
     if (probe.scrollWidth > probe.clientWidth + 1) {
@@ -28,6 +31,11 @@ export function reviewFindings(probes: ProbeAt[]): string {
     for (const g of probe.lonelyGrids ?? []) {
       lines.push(
         `- At ${label} width the grid class="${g.cls}" has ${g.cols} columns but only ONE child that holds ${g.items} items, so they all stack in a single narrow column. Put the grid classes on the element that directly contains the items (if it is a Stagger, give the Stagger the grid classes).`
+      );
+    }
+    for (const r of probe.raggedRows ?? []) {
+      lines.push(
+        `- At ${label} width row ${r.row} of the grid class="${r.cls}" leaves a ${r.emptyPx}px hole. Make the column spans in every row add up to the number of columns (or change the column count), so each row is completely filled.`
       );
     }
     for (const e of probe.emptySides ?? []) {

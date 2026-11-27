@@ -251,9 +251,12 @@ async function capture(d) {
     ]);
     window.scrollTo(0, 0);
     const W = Math.max(320, window.innerWidth);
+    // One broken image (a made-up path, an empty src) must not fail the whole screenshot: leave it out of the picture.
+    const usable = (node) => !(node.tagName === "IMG" && (!node.getAttribute("src") || (node.complete && node.naturalWidth === 0)));
+    const BLANK = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
     if (review) {
       const H = Math.min(Math.max(document.documentElement.scrollHeight, window.innerHeight), 3200);
-      const opts = { quality: 0.7, pixelRatio: Math.min(1, 900 / W), width: W, height: H, backgroundColor: "#ffffff" };
+      const opts = { quality: 0.7, pixelRatio: Math.min(1, 900 / W), width: W, height: H, backgroundColor: "#ffffff", filter: usable, imagePlaceholder: BLANK };
       const fonts = d.fonts === false ? "" : await embeddedFontCss();
       let data;
       try {
@@ -266,7 +269,7 @@ async function capture(d) {
     } else {
       const H = Math.min(window.innerHeight, Math.round(W * 0.625));
       const fonts = await embeddedFontCss();
-      const topts = { quality: 0.6, pixelRatio: 320 / W, width: W, height: H, backgroundColor: "#ffffff" };
+      const topts = { quality: 0.6, pixelRatio: 320 / W, width: W, height: H, backgroundColor: "#ffffff", filter: usable, imagePlaceholder: BLANK };
       let data;
       try {
         data = await withTimeout(window.htmlToImage.toJpeg(document.body, fonts ? Object.assign({ skipFonts: false, fontEmbedCSS: fonts }, topts) : Object.assign({ skipFonts: true }, topts)), 45000, "thumbnail");
@@ -879,17 +882,84 @@ const EDITOR = String.raw`
       var text = (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40);
       cutOff.push({ tag: el.tagName.toLowerCase(), cls: cls, text: text, left: Math.round(r.left), right: Math.round(r.right) });
     });
+    // What a grid really lays out: display: contents wrappers (such as the ones Stagger adds) are looked through.
+    function laidOut(el) {
+      var out = [];
+      Array.prototype.forEach.call(el.children, function (k) {
+        if (getComputedStyle(k).display === "contents") out = out.concat(laidOut(k));
+        else out.push(k);
+      });
+      return out;
+    }
     // A grid with columns but a single child that holds all the items: every card shares one cell and they stack.
     var lonelyGrids = [];
     Array.prototype.forEach.call(document.body.querySelectorAll("*"), function (el) {
-      if (lonelyGrids.length >= 4 || el.children.length !== 1) return;
+      if (lonelyGrids.length >= 4 || el.children.length < 1) return;
       var cs = getComputedStyle(el);
       if (cs.display !== "grid") return;
+      var kids = laidOut(el);
+      if (kids.length !== 1) return;
       var cols = cs.gridTemplateColumns.split(" ").filter(function (t) { return t && t !== "none"; }).length;
-      var only = el.children[0];
-      if (cols < 2 || getComputedStyle(only).display === "contents" || only.children.length < 2) return;
+      var only = kids[0];
+      if (cols < 2 || only.children.length < 2) return;
       lonelyGrids.push({ cls: (typeof el.className === "string" ? el.className : "").replace(/\s+/g, " ").trim().slice(0, 70), cols: cols, items: only.children.length });
     });
+    // Bento and card grids with a hole: a row in which some of the columns have no card at all.
+    var raggedRows = [];
+    if (vw >= 1100) {
+      Array.prototype.forEach.call(document.body.querySelectorAll("*"), function (el) {
+        if (raggedRows.length >= 4 || el.children.length < 1) return;
+        var cs = getComputedStyle(el);
+        if (cs.display !== "grid") return;
+        var box = el.getBoundingClientRect();
+        var width = box.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        if (width < 600 || cs.gridTemplateColumns.split(" ").length < 2) return;
+        var gap = parseFloat(cs.columnGap) || 0;
+        // Where each column sits (from the right in right-to-left pages). Judging by columns, not by card widths,
+        // keeps centered or max-width cards (justify-items-center, mx-auto) from looking like holes.
+        var rtl = cs.direction === "rtl";
+        var x = rtl ? box.right - parseFloat(cs.paddingRight) : box.left + parseFloat(cs.paddingLeft);
+        var tracks = cs.gridTemplateColumns.split(" ").map(parseFloat).filter(function (t) { return t >= 1; }).map(function (t) {
+          var l = rtl ? x - t : x;
+          x = rtl ? l - gap : x + t + gap;
+          return { l: l, r: l + t, w: t };
+        });
+        if (tracks.length < 2) return;
+        var items = [];
+        laidOut(el).forEach(function (k) {
+          var s = getComputedStyle(k);
+          if (s.display === "none" || s.position === "absolute" || s.position === "fixed") return;
+          var r = k.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) items.push(r);
+        });
+        if (items.length < 2) return;
+        var widths = items.map(function (r) { return r.width; });
+        var bento = Math.max.apply(null, widths) > Math.min.apply(null, widths) * 1.2;
+        // Tops within 48px belong to one row (a featured card is often raised a little on purpose); each row keeps its lowest top.
+        var tops = items.map(function (r) { return r.top; }).sort(function (a, b) { return a - b; }).reduce(function (rows, t) {
+          if (rows.length && t - rows[rows.length - 1] <= 48) rows[rows.length - 1] = t;
+          else rows.push(t);
+          return rows;
+        }, []);
+        for (var i = 0; i < tops.length; i++) {
+          // Everything covering this row, including taller cards that started in a row above.
+          var line = tops[i] + 24;
+          var inRow = items.filter(function (r) { return r.top <= line && r.bottom > line; });
+          var empty = tracks.reduce(function (sum, t) {
+            var middle = (t.l + t.r) / 2;
+            var filled = inRow.some(function (r) { var c = (r.left + r.right) / 2; return (r.left <= middle && r.right >= middle) || (c >= t.l && c <= t.r); });
+            return filled ? sum : sum + t.w;
+          }, 0);
+          // An equal-card grid may end with a shorter last row (5 cards in 3 columns), but not a mostly empty one in a
+          // wide grid (2 cards in 6 columns). A bento may not have a hole anywhere.
+          var shortEndIsFine = !bento && i === tops.length - 1 && !(tracks.length >= 4 && empty > width / 2);
+          if (!shortEndIsFine && empty > Math.max(80, width * 0.12)) {
+            raggedRows.push({ cls: (typeof el.className === "string" ? el.className : "").replace(/\s+/g, " ").trim().slice(0, 70), row: i + 1, emptyPx: Math.round(empty) });
+            break;
+          }
+        }
+      });
+    }
     // On a wide screen, a section whose content huddles against one side and leaves the other half empty.
     var emptySides = [];
     if (vw >= 1100) {
@@ -912,8 +982,16 @@ const EDITOR = String.raw`
         else if (minL > vw * 0.32 && maxR > vw * 0.88) emptySides.push({ title: title, side: "left", usedPercent: Math.round((vw - minL) / vw * 100) });
       });
     }
+    // Images that visitors would see as broken (loading lazy ones are skipped: they are not complete yet).
+    var brokenImages = [];
+    Array.prototype.forEach.call(document.images, function (i) {
+      if (brokenImages.length >= 8) return;
+      var src = i.getAttribute("src");
+      if (!src || (i.complete && i.naturalWidth === 0)) brokenImages.push({ src: String(src || "").slice(0, 100), alt: String(i.alt || "").slice(0, 50) });
+    });
     return {
-      lonelyGrids: lonelyGrids, emptySides: emptySides,
+      brokenImages: brokenImages,
+      lonelyGrids: lonelyGrids, emptySides: emptySides, raggedRows: raggedRows,
       cutOff: cutOff,
       h1Count: document.querySelectorAll("h1").length, headingSkips: skips,
       imgsTotal: imgs.length, imgsNoAlt: noAlt, buttonsNoName: noName, inputsNoLabel: noLabel,

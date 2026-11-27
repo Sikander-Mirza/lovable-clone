@@ -44,3 +44,14 @@ test("the exported project contains the kit and an alias for it", () => {
   assert.equal(repo["src/lovable-ui.js"], UI_KIT_SOURCE);
   assert.match(repo["vite.config.js"], /"lovable-ui": fileURLToPath\(new URL\("\.\/src\/lovable-ui\.js"/);
 });
+
+test("made-up local image paths are errors; photo URLs, data URLs and real project files are not", async () => {
+  const errors = async (src: string, extra: Record<string, string> = {}) =>
+    (await validateProject({ "/App.js": src, ...extra })).filter((i) => i.severity === "error").map((i) => i.message);
+  const bad = await errors('const logos=[{src:"/brand-logos/linear-gray.svg"}];\nexport default function App(){ return <img src="./img/hero.JPG" alt="" /> }');
+  assert.equal(bad.length, 2);
+  assert.match(bad[0], /Image "\/brand-logos\/linear-gray\.svg" does not exist/);
+  const ok = await errors('const a="https://images.unsplash.com/photo-1-2?w=400"; const b="https://x.com/a.png"; const c="data:image/png;base64,AAAA";\nexport default function App(){ return <img src={a} alt="" /> }');
+  assert.deepEqual(ok, []);
+  assert.deepEqual(await errors('export default function App(){ return <img src="/logo.svg" alt="" /> }', { "/public/logo.svg": "<svg/>" }), []);
+});
